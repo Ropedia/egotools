@@ -74,7 +74,9 @@ The repository includes an adapter and launcher; VLMEvalKit remains an external
 dependency. The setup script clones upstream revision
 `e7d64cfa8f6036e1d00e21522aaee0102544ea25` into the ignored
 `eval/VLMEvalKit/` directory and installs it into a dedicated conda environment.
-An existing checkout is reused without changing its revision.
+An existing checkout is reused without changing its revision. The setup script
+sets `PYTHONNOUSERSITE=1` for this conda environment so unrelated packages in
+`~/.local` cannot satisfy installation requirements or override its imports.
 
 ```bash
 bash eval/setup/setup_env.sh
@@ -93,14 +95,24 @@ If you already manage an inference environment, install the dependency there:
 ```bash
 git clone https://github.com/open-compass/VLMEvalKit.git /path/to/VLMEvalKit
 git -C /path/to/VLMEvalKit checkout e7d64cfa8f6036e1d00e21522aaee0102544ea25
+export PYTHONNOUSERSITE=1
 python -m pip install -c eval/setup/constraints.txt \
   -e /path/to/VLMEvalKit -e '.[eval]'
 python eval/setup/verify_env.py
 ```
 
-Install the appropriate PyTorch wheels first. Some other VLMEvalKit model
-families need their own environments and upstream dependencies. This repository
+Keep `PYTHONNOUSERSITE=1` set when running that environment. For a conda
+environment, `conda env config vars set -n YOUR_ENV PYTHONNOUSERSITE=1` persists
+it for future activations. Install the appropriate PyTorch wheels first.
+Some other VLMEvalKit model families need their own environments and upstream
+dependencies. This repository
 does not bundle those environments or the development VITA-specific patches.
+
+On the tested Linux x86_64 / Python 3.10 installation, `pip check` reports that
+Decord 0.6.0 is unsupported because the wheel's internal metadata contains a
+Python 3.6 tag. Decord imports and the 64-frame video decoding path were executed
+successfully on that installation. This upstream packaging warning remains;
+it should not be mistaken for a clean `pip check` result.
 
 ## Run a model
 

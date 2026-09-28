@@ -34,6 +34,11 @@ if ! conda run -n "${ENV_NAME}" python --version >/dev/null 2>&1; then
   conda env create -n "${ENV_NAME}" -f "${SCRIPT_DIR}/environment.yml"
 fi
 conda activate "${ENV_NAME}"
+# Conda otherwise permits ~/.local Python packages to satisfy requirements and
+# shadow this environment's packages. Keep installs and future activations
+# independent of that unrelated user site.
+conda env config vars set -n "${ENV_NAME}" PYTHONNOUSERSITE=1
+export PYTHONNOUSERSITE=1
 python -m pip install "torch==2.6.0" "torchvision==0.21.0" --index-url "${TORCH_INDEX_URL}"
 python -m pip install -c "${SCRIPT_DIR}/constraints.txt" -e "${VLMEVALKIT_DIR}" -e "${REPO_ROOT}[eval]"
 python "${SCRIPT_DIR}/verify_env.py"

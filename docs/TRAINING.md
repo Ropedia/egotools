@@ -34,6 +34,13 @@ python -m pip check
 swift sft --help
 ```
 
+The pinned upstream `swift sft --help` prints its preliminary backend parser.
+To inspect the complete argument list without loading a model:
+
+```bash
+python -c "from swift.pipelines import sft_main; sft_main(['--help'])"
+```
+
 `ms-swift` is an external dependency, installed from its public Git repository at
 revision `44c92c7cea08bf3b6e9f9b05ab182b6e81b0a7c7` (reported version
 `4.2.0.dev0`). The launcher uses that revision's `swift sft` CLI, including
@@ -74,6 +81,28 @@ the `videos/train/...` references resolve. Invoke this repository's launcher by
 its absolute path if running outside the code checkout. Preserve the source-video
 split when preparing data: benchmark source
 videos and all their derivatives are excluded from training.
+
+Before loading the staging JSONL with ms-swift, create a model-input copy:
+
+```bash
+python training/prepare_sft.py \
+  /path/to/training-root/sft/v4_all_backfilled/final.jsonl \
+  --output /path/to/training-root/train.swift.jsonl
+```
+
+Use `train.swift.jsonl` as the launcher's `--dataset`. Directly loading the
+published `final.jsonl` fails in Hugging Face Datasets because its nested
+`metadata` fields differ across batches. The converter streams all records in
+their original order and preserves `messages`, `videos`, `images`, `audios`,
+`tools`, and `objects` when present. It removes provenance columns from the copy;
+the original JSONL is retained. Invalid JSON or malformed messages stop the
+conversion with a line number, and an incomplete output is not published.
+
+The pinned ms-swift SFT loader discards the original top-level `start_frame` and
+`end_frame` fields; the converter removes them along with `_index` and `metadata`.
+Neither the converter nor this training launcher crops videos using those span
+fields. Retain the original annotations for provenance and perform any source
+exclusion or intended clip construction before creating the model-input copy.
 
 ## Paper recipe
 
@@ -164,13 +193,29 @@ effective batch of 128 through per-device batch 2 and accumulation 8, and its
 repository root is an intermediate checkpoint. It is available for smoke testing
 and inspection; it is not the final 184,679-example paper model.
 
-The release launcher has been exercised with dry-run and a stub ms-swift process
-to check argument quoting, environment propagation, logging, and failure status.
-Its CLI flags and video environment variables were checked against the pinned
-upstream source. Dependency resolution succeeded for Linux x86_64 / Python 3.11
-after the `datasets` correction; a complete CUDA environment installation and
-FlashAttention build were not exercised. No full GPU training run or
-final-checkpoint reproduction was performed as part of preparing this code
-release. Reproducing the reported paper
-model still requires the final training data and media, the final checkpoint for
-comparison, and an actual training run on the intended hardware.
+The release was also exercised with the actual pinned ms-swift framework:
+
+- The raw public 172,118-row JSONL failed Arrow loading because of heterogeneous
+  provenance metadata. The prepared copy loaded all 172,118 rows with strict
+  dataset validation and unchanged message and video values.
+- The released launcher completed one full language-model optimizer step on
+  **Qwen3-VL-2B-Instruct**, using one RTX 6000 Ada GPU and one public training
+  example with its referenced 99-frame video. The run retained BF16, ZeRO-3,
+  frozen vision encoder/aligner, 64 sampled frames, an 8,192-token maximum, and
+  the `2.3e-6` learning rate. It reported finite loss `2.73193479`, gradient norm
+  `78.9930412`, step `1/1`, and peak allocated memory `35.84 GiB`, and exited 0.
+- That bounded test explicitly used SDPA, accumulation 1, `--max_steps 1`, and
+  `--save_strategy no`. The original FlashAttention setting failed with a missing
+  `flash_attn` dependency in the available environment. Checkpoint saving and
+  resumption were not exercised.
+- The runtime test used a temporary Python 3.10 environment that reused installed
+  PyTorch 2.6.0 / CUDA 12.4 and installed the pinned training framework packages.
+  A clean installation of the documented Python 3.11 environment and a
+  FlashAttention build were not exercised; dependency resolution for that
+  environment did succeed.
+
+The 2B one-step test verifies the training software path; it does not reproduce
+the 8B paper model or its accuracy. Full reproduction still requires the final
+184,679-example data and media, the final checkpoint for comparison, the intended
+hardware, and a full training run. Shell integration tests separately cover
+quoting, argument overrides, logging, and failure propagation.

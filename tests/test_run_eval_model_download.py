@@ -216,3 +216,31 @@ def test_entry_initializes_upstream_before_importing_adapter(tmp_path, monkeypat
     import os
 
     assert os.environ["UPSTREAM_MAIN_RAN"] == "1"
+
+
+def test_aggregation_deduplicates_upstream_prediction_symlink(tmp_path):
+    from eval.scripts._aggregate_metrics import aggregate_results
+
+    model_root = tmp_path / "Model"
+    run_root = model_root / "run-1"
+    run_root.mkdir(parents=True)
+    predictions = run_root / "Model_EgotoolsBench_custom_full_64frame.tsv"
+    predictions.write_text("index\tanswer\tprediction\n0\tA\tA\n1\tB\tA\n")
+    (model_root / predictions.name).symlink_to(predictions.relative_to(model_root))
+
+    results = aggregate_results(tmp_path, "Model")
+    assert results["prediction_file"] == str(predictions.resolve())
+    assert results["n_evaluated"] == 2
+    assert results["metrics"]["overall"]["accuracy"] == 0.5
+    assert (tmp_path / "results.json").is_file()
+
+
+def test_aggregation_still_reports_two_distinct_prediction_tables(tmp_path):
+    from eval.scripts._aggregate_metrics import _locate_pred_file
+
+    for run_name in ("run-1", "run-2"):
+        run_root = tmp_path / "Model" / run_name
+        run_root.mkdir(parents=True)
+        (run_root / "Model_EgotoolsBench_custom_full_64frame.tsv").write_text("answer\tprediction\nA\tA\n")
+    with pytest.raises(ValueError, match="multiple prediction files"):
+        _locate_pred_file(tmp_path, "Model")

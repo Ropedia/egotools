@@ -17,7 +17,15 @@ from vlmeval_ext.egotools_dataset import EgotoolsBench  # noqa: E402
 def _locate_pred_file(work_dir: Path, model_name: str) -> Path:
     for extension in ("xlsx", "tsv", "jsonl"):
         matches = sorted(work_dir.rglob(f"{model_name}_*EgotoolsBench*.{extension}"))
-        matches = [path for path in matches if not path.stem.endswith(("_scored", "_acc", "_rating"))]
+        # VLMEvalKit also creates model-root symlinks to the prediction tables
+        # stored under an evaluation-id directory. They identify the same file.
+        matches = sorted(
+            {
+                path.resolve()
+                for path in matches
+                if path.is_file() and not path.stem.endswith(("_scored", "_acc", "_rating"))
+            }
+        )
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:

@@ -14,13 +14,18 @@ Git history.
 > final paper-aligned Hugging Face resources remain to be supplied before the
 > repository is made public. See [the release checklist](docs/RELEASE_CHECKLIST.md).
 
+**Reproduction status:** the utilities, a two-video Qwen3-VL-8B inference run,
+and a one-step Qwen3-VL-2B training smoke test have been exercised. The final
+paper experiments and complete data reconstruction have **not** been reproduced.
+See [the measured validation scope](docs/VALIDATION.md).
+
 ## Resources
 
 | Resource | Location | Current status |
 | --- | --- | --- |
 | Project page and paper PDF | <https://ropedia.github.io/egotools/> | Available |
 | Public model checkpoint | <https://huggingface.co/egotools-dev/egotools-8b-v3_3> | Earlier 116,031-example checkpoint; not the final 184,679-example paper model |
-| Public data bundle | <https://huggingface.co/datasets/egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623> | Earlier 172,118-example SFT / 902-QA bundle; not the final paper release |
+| Earlier data bundle | <https://huggingface.co/datasets/egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623> | Access approval required; 172,118-example SFT / 902-QA bundle, not the final paper release |
 | Base model | <https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct> | Available |
 
 The resource mapping lives in [`configs/resources.yaml`](configs/resources.yaml).
@@ -54,7 +59,10 @@ source .venv/bin/activate
 python -m pip install -e '.[data,eval,test]'
 ```
 
-Download the current benchmark metadata (no GPU or media download required):
+The benchmark base and incremental bundle require Hugging Face access approval.
+Request access on their dataset pages and authenticate with the approved account
+using `hf auth login`; publicly visible file lists do not grant download access.
+Then download the current benchmark metadata (no GPU or media download required):
 
 ```bash
 egotools-download benchmark --metadata-only --output-dir data/huggingface
@@ -103,8 +111,17 @@ benchmark consisting of 900 human-authored questions and 100 human-verified
 spatial questions. The currently public Hub bundle predates that final version.
 The public bundle combines assets from two Hub repositories. Their file lists
 cover all 902 `video` references; three optional `clip_video` files are absent.
-The code has been tested on CPU and with existing framework imports. Full GPU
-training and paper-model evaluation have not been rerun for this candidate.
+The evaluation setup has been installed in a new isolated conda environment,
+and a real two-video 64-frame Qwen3-VL-8B run has been exercised. Training has
+been tested through a single 2B optimizer step and a full 172,118-row data load
+after [SFT preparation](docs/TRAINING.md). Full 8B training and paper-model
+evaluation have not been rerun for this candidate.
+
+The public files also lack complete source-ID mappings and original curation
+inputs. They are insufficient to reconstruct the paper's source-video split
+or regenerate its benchmark. [DATA.md](docs/DATA.md) lists the missing inputs
+and measured outcomes; a zero-overlap report from unresolved IDs is not valid
+evidence of source separation.
 
 For local checks:
 

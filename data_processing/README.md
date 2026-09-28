@@ -4,7 +4,10 @@ These scripts expose the reusable QA and split-processing steps from the
 research workspace. The repository contains code and prompt templates; source
 annotations, review logs, manifests, participant information, and media are
 supplied separately. Run the commands from a source checkout. Every input and
-output path is explicit; no private directory layout is assumed.
+output path is explicit; no private directory layout is assumed. The currently
+configured Hub resources do not include every source input needed to recreate
+the original curation. See the availability table in `docs/DATA.md` before
+attempting source reconstruction.
 
 Offline normalization, track assignment, review extraction, and benchmark
 construction use the Python standard library. For optional Gemini processing,
@@ -149,14 +152,23 @@ python -m data_processing.training.filter_train_eval_overlap \
 
 The evaluation directory supplies `manifest.tsv`. Training rows use the same
 canonical source ID in `canonical_video_id` or
-`metadata.canonical_video_id`. `video_id` and `metadata.video_id` are accepted
-only when they already use that canonical ID namespace. Filename or clip-ID
-inference is not performed. Rows without a source ID are excluded and counted.
+`metadata.canonical_video_id`. A legacy `video_id` or `metadata.video_id` is
+ignored unless `--source-id-map /path/to/mapping.json` explicitly maps it to a
+canonical ID. The mapping is a JSON object such as
+`{"legacy-source-001": "canonical-video-001"}` and must come from source
+metadata. Filename or clip-ID inference is not performed. Rows without a
+resolved canonical source ID are excluded and counted.
+
+In the distributed historical 172,118-row SFT file, 116,031 rows lack canonical
+IDs; the default filter excludes them and retains 56,087 rows with known IDs.
+This measured result is a partial filtered subset, not the paper training
+mixture. See `docs/DATA.md` for the missing source inputs and access requirements.
 Repeat `--input-jsonl` for files with distinct basenames. Media references in
 retained records remain unchanged.
 
 Optional `--captions-dir` and `--videos-dir` copy source assets named
 `<canonical_video_id>.json`, `<canonical_video_id>.mp4`, and `<ID>_clips/`.
+Only assets for canonical IDs retained in the input records are copied.
 Use a fresh asset output directory so files from an earlier split cannot remain
 in the result. Generated training JSONL and reports are written directly under
 `--output-root`.

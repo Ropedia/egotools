@@ -193,3 +193,33 @@ def test_cached_review_must_match_current_option_texts():
     assert latest_matching_eval(record) is None
     record.evals[0]["options"][1]["text"] = "pliers"
     assert latest_matching_eval(record) == record.evals[0]
+
+
+def test_distributed_sft_legacy_ids_require_explicit_source_mapping(tmp_path):
+    from data_processing.training.filter_train_eval_overlap import filter_assets, filter_jsonl
+
+    source = tmp_path / "public-shaped.jsonl"
+    rows = [
+        {"messages": [{"role": "user", "content": "<video> Which tool?"}],
+         "videos": ["videos/train/legacy-source__clip.mp4"], "start_frame": 1, "end_frame": 20,
+         "metadata": {"video_id": "legacy-source", "sample_type": "mcq"}},
+        {"messages": [], "videos": ["videos/train/other.mp4"],
+         "metadata": {"video_id": "legacy-other", "canonical_video_id": "other-source"}},
+    ]
+    write_jsonl(source, rows)
+    report = filter_jsonl(source, tmp_path / "canonical-only.jsonl", {"benchmark-source"})
+    assert report["missing_video_id_rows"] == 1
+    assert report["kept_rows"] == 1
+    assert read_jsonl(tmp_path / "canonical-only.jsonl") == [rows[1]]
+    report = filter_jsonl(source, tmp_path / "mapped.jsonl", {"benchmark-source"},
+                          source_id_map={"legacy-source": "benchmark-source"})
+    assert report["missing_video_id_rows"] == 0
+    assert report["overlap_rows"] == 1
+    assert report["kept_rows"] == 1
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    for name in ("legacy-source.mp4", "benchmark-source.mp4", "other-source.mp4"):
+        (assets / name).write_bytes(b"synthetic-media")
+    filter_assets(assets, tmp_path / "retained-assets", {"other-source"}, captions=False)
+    assert [path.name for path in (tmp_path / "retained-assets").iterdir()] == ["other-source.mp4"]
