@@ -14,8 +14,8 @@ together. The checks below distinguish those cases.
 | Python distribution | Wheel and source distribution; wheel installed outside the checkout | Configuration loading and the four utility entry points passed |
 | Dataset access | Anonymous download of an actual benchmark MP4, followed by authorized download | Anonymous request returned HTTP 401; the approved local account downloaded both test videos |
 | Evaluation setup | New conda environment, independent clone of pinned VLMEvalKit, actual setup script | Required imports and CUDA passed; user-site isolation was corrected and four borrowed packages were installed into the environment |
-| Real model inference | Qwen3-VL-8B-Instruct, two downloaded benchmark videos, 64 frames, one RTX 6000 Ada 48 GB, BF16/SDPA | Both predictions completed; 0/2 correct and 100% answer extraction. This tiny sample establishes execution, not benchmark quality |
-| Result aggregation | The actual upstream prediction table and its model-root symlink | Initially failed by counting the symlink as another prediction; corrected aggregation processed the same predictions successfully |
+| Real model inference | Qwen3-VL-8B-Instruct, two downloaded benchmark videos, 64 frames, one RTX 6000 Ada 48 GB, BF16/SDPA | The updated GitHub checkout completed inference and aggregation with exit 0 in the isolated environment; 0/2 correct and 100% answer extraction. This tiny sample establishes execution, not benchmark quality |
+| Result aggregation | The actual upstream prediction table and its model-root symlink | Initially failed by counting the symlink as another prediction; corrected aggregation processed those predictions and a fresh isolated rerun successfully |
 | Full SFT ingestion | Actual pinned ms-swift loader on all 172,118 public records | Original file failed after 5,766 rows because nested metadata schemas differ; the prepared file loaded all 172,118 rows in 3.979 seconds |
 | SFT conversion | Streaming conversion of all public records, followed by row-by-row comparison | Messages, videos, and order matched for all 172,118 records; non-model provenance columns removed |
 | Actual training | Qwen3-VL-2B-Instruct, one public example/video, one GPU, BF16/SDPA, ZeRO-3, 64 frames, one full-language-model optimizer step | Exit 0; loss 2.73193479, gradient norm 78.9930412, peak 35.84 GiB. This used a Python 3.10 dependency overlay, not the full documented Python 3.11 setup |
@@ -26,6 +26,12 @@ together. The checks below distinguish those cases.
 The fixed-letter CPU mock also completed on all 902 questions: both scoring
 paths returned 129/902 for the fixed answer `A`, matching the gold-answer count.
 That mock neither decodes videos nor performs model inference.
+
+The final two-video check used code commit `415cac8`, pulled from GitHub into
+the independent checkout after the fixes. `PYTHONNOUSERSITE=1` excluded
+`~/.local`, the installed EgoTools package resolved to that checkout, and a
+new run directory prevented reuse of earlier predictions. The runner wrote
+its final `results.json` and exited 0 without a separate recovery command.
 
 ## Fixes required by the real attempts
 
