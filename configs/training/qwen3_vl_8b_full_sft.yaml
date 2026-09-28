@@ -1,0 +1,47 @@
+# Human-readable recipe reference. The shell launcher contains executable
+# ms-swift arguments; this nested YAML is not a `swift sft` configuration file.
+recipe: egotools_qwen3_vl_8b_full_sft
+code_version: 1.0.0
+base_model: Qwen/Qwen3-VL-8B-Instruct
+framework:
+  name: ms-swift
+  source: https://github.com/modelscope/ms-swift
+  revision: 44c92c7cea08bf3b6e9f9b05ab182b6e81b0a7c7
+  reported_version: 4.2.0.dev0
+optimization:
+  epochs: 1
+  reported_optimizer_steps: 1443
+  optimizer: adamw_torch
+  learning_rate: 2.3e-6
+  scheduler: constant
+  warmup_ratio: 0.0
+  weight_decay: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  precision: bfloat16
+  max_sequence_length: 8192
+distributed:
+  gpus: 8
+  per_device_batch_size: 1
+  gradient_accumulation_steps: 16
+  effective_batch_size: 128
+  deepspeed: zero3
+model:
+  tuner_type: full
+  freeze_language_model: false
+  freeze_vision_encoder: true
+  freeze_aligner: true
+  gradient_checkpointing: true
+  attention: flash_attn
+video:
+  target_fps: 2
+  min_frames: 64
+  max_frames: 64
+  short_video_behavior: clamp_to_available_frames
+  reader: decord
+  video_tokens_per_frame: 128
+  image_token_budget: 1024
+data:
+  paper_examples: 184679
+  benchmark_source_overlap: 0
+seed: 42

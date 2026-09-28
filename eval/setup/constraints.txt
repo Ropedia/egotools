@@ -1,0 +1,5 @@
+# Compatible Transformers backend for the released Qwen3-VL evaluation recipe.
+# Other model families may require their own upstream environment.
+torch==2.6.0
+torchvision==0.21.0
+transformers==5.6.2

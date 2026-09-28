@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use EgoTools, please cite the paper."
+title: "EgoTools: Towards Tool-Centric Reasoning in Real-World Egocentric Videos"
+type: software
+version: 1.0.0
+url: "https://github.com/Ropedia/EgoTools"
+repository-code: "https://github.com/Ropedia/EgoTools"
+authors:
+  - family-names: Tian
+    given-names: Shulin
+  - family-names: Kim
+    given-names: Junsu
+  - family-names: Liu
+    given-names: Shuai
+  - family-names: Li
+    given-names: Hao
+  - family-names: Shen
+    given-names: Yujiao
+  - family-names: Li
+    given-names: Sihan
+  - family-names: Yang
+    given-names: Zhe
+  - family-names: Kim
+    given-names: Yeongon
+  - family-names: Li
+    given-names: Feiyu
+  - family-names: Wu
+    given-names: Jialin
+  - family-names: Zhang
+    given-names: Yichi
+  - family-names: Wang
+    given-names: Wenhui
+  - family-names: Yao
+    given-names: Runmao
+  - family-names: Dong
+    given-names: Yuhao
+  - family-names: Chen
+    given-names: Zhaoxi
+  - family-names: Hong
+    given-names: Fangzhou
+  - family-names: Furnari
+    given-names: Antonino
+  - family-names: Yang
+    given-names: Jingkang
+  - family-names: Zhu
+    given-names: Hongyuan
+  - family-names: Liu
+    given-names: Ziwei
