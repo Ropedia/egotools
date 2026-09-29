@@ -35,20 +35,24 @@ egotools-download = "egotools.resources:main"
 egotools-score = "egotools.score:main"
 egotools-validate-manifest = "egotools.manifest:main"
 egotools-prepare-manifest = "egotools.prepare:main"
+egotools-evaluate = "egotools.evaluation.runner:main"
+egotools-materialize = "egotools.evaluation.materialize:main"
+egotools-prepare-sft = "egotools.data.prepare_sft:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/egotools"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "configs/resources.yaml" = "egotools/resources.yaml"
+"configs/resources.preview.yaml" = "egotools/resources.preview.yaml"
 "third_party/LICENSE-VLMEvalKit" = "egotools/LICENSE-VLMEvalKit"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/", "configs/", "data_processing/", "eval/", "training/", "tests/", "docs/", "third_party/", "README.md", "CITATION.cff", "pyproject.toml", ".gitignore"]
+include = ["src/", "configs/", "scripts/", "examples/", "tests/", "docs/", "third_party/LICENSE-VLMEvalKit", "README.md", "CITATION.cff", "pyproject.toml", ".gitignore"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
-pythonpath = [".", "src"]
+pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff]

@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
 
-from .egotools_dataset import EGOTOOLS_VERSIONS, EgotoolsBench
+from egotools.evaluation.datasets.egotools import EGOTOOLS_VERSIONS, EgotoolsBench
 
 _REGISTERED = False
 _QWEN3_VL_BACKEND_PATCHED = False
@@ -93,7 +93,7 @@ def register_egotools_bench(force: bool = False) -> bool:
         warnings.warn(
             f"vlmeval is not importable ({e}); EgotoolsBench will not be "
             "registered into VLMEvalKit. The smoke runner and direct "
-            "imports of egotools_dataset still work.",
+            "imports of egotools.evaluation.datasets.egotools still work.",
             stacklevel=2,
         )
         return False
@@ -167,7 +167,7 @@ def ensure_custom_qwen3_vl_checkpoint(force: bool = False) -> bool:
         top_k=20,
     )
     _CUSTOM_QWEN3_VL_REGISTERED = True
-    warnings.warn(f"[vlmeval_ext] registered custom Qwen3-VL model {model_key!r} from {checkpoint}.", stacklevel=2)
+    warnings.warn(f"[egotools.vlmevalkit] registered custom Qwen3-VL model {model_key!r} from {checkpoint}.", stacklevel=2)
     return True
 
 
@@ -282,7 +282,7 @@ def ensure_pyav_compat() -> bool:
             fallback = getattr(getattr(av, "error", None), "OSError", Exception)
         av.AVError = fallback
         warnings.warn(
-            "[vlmeval_ext] patched PyAV compatibility: restored av.AVError "
+            "[egotools.vlmevalkit] patched PyAV compatibility: restored av.AVError "
             f"as {fallback.__module__}.{fallback.__name__}.",
             stacklevel=2,
         )
@@ -353,7 +353,7 @@ def ensure_qwen3_vl_backend(force_transformers: bool | None = None) -> bool:
     _QWEN3_VL_BACKEND_PATCHED = True
     if patched:
         warnings.warn(
-            "[vlmeval_ext] vllm not importable; forced use_vllm=False on "
+            "[egotools.vlmevalkit] vllm not importable; forced use_vllm=False on "
             f"{len(patched)} Qwen3-VL preset(s): {patched[:6]}{'...' if len(patched) > 6 else ''}",
             stacklevel=2,
         )
@@ -406,7 +406,7 @@ def ensure_qwen3_vl_attention() -> bool:
     Qwen3VLChat._egotools_attn_patched = True
     _QWEN3_VL_ATTN_PATCHED = True
     warnings.warn(
-        "[vlmeval_ext] patched Qwen3-VL transformers fallback to use "
+        "[egotools.vlmevalkit] patched Qwen3-VL transformers fallback to use "
         f"attn_implementation={os.environ.get('EGOTOOLS_QWEN3VL_ATTN', 'sdpa')!r} "
         "instead of flash_attention_2.",
         stacklevel=2,
@@ -461,7 +461,7 @@ def ensure_qwen2_vl_attention() -> bool:
                             max_memory["cpu"] = cpu_memory
                         fp_kwargs["max_memory"] = max_memory
                     except Exception as e:  # noqa: BLE001
-                        warnings.warn(f"[vlmeval_ext] failed to set Qwen2 max_memory: {e}", stacklevel=2)
+                        warnings.warn(f"[egotools.vlmevalkit] failed to set Qwen2 max_memory: {e}", stacklevel=2)
                 return original(*fp_args, **fp_kwargs)
 
             cls.from_pretrained = classmethod(patched_from_pretrained)
@@ -483,7 +483,7 @@ def ensure_qwen2_vl_attention() -> bool:
     Qwen2VLChat._egotools_attn_patched = True
     _QWEN2_VL_ATTN_PATCHED = True
     warnings.warn(
-        "[vlmeval_ext] patched Qwen2/Qwen2.5-VL transformers fallback to use "
+        "[egotools.vlmevalkit] patched Qwen2/Qwen2.5-VL transformers fallback to use "
         f"attn_implementation={os.environ.get('EGOTOOLS_QWEN2VL_ATTN', 'sdpa')!r} "
         "instead of flash_attention_2.",
         stacklevel=2,

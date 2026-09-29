@@ -5,7 +5,7 @@ Use --mode checks_only for offline normalization of existing eight-option
 records. Other modes optionally repair text and augment, validate, or reduce
 distractors with Gemini (GEMINI_API_KEY). --dry-run reports routing and checks
 without creating files. Inputs may be flat QA objects or contain a nested
-record object; see data_processing/README.md for fields and examples.
+record object; see docs/DATA_PROCESSING.md for fields and examples.
 """
 
 from __future__ import annotations
@@ -23,33 +23,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from egotools.data.benchmark.qa_common import (
+    GeminiClient,
+    QARecord,
+    assert_output_safe,
+    extract_frames,
+    latest_matching_eval,
+    load_env,
+    write_run_manifest,
+)
+
 try:
     from tqdm import tqdm  # type: ignore
 except ImportError:  # pragma: no cover — optional progress display
     def tqdm(iterable=None, **kwargs):
         return iterable if iterable is not None else iter(())
-
-# Support both direct scripts and python -m data_processing... invocation.
-if __package__ in (None, ""):
-    from qa_common import (
-        GeminiClient,
-        QARecord,
-        assert_output_safe,
-        extract_frames,
-        latest_matching_eval,
-        load_env,
-        write_run_manifest,
-    )
-else:
-    from .qa_common import (
-        GeminiClient,
-        QARecord,
-        assert_output_safe,
-        extract_frames,
-        latest_matching_eval,
-        load_env,
-        write_run_manifest,
-    )
 
 # ─────────────────────────────────────────────────────────────────────
 # Video-evidence helpers
@@ -832,8 +820,8 @@ def record_from_jsonl_row(row: dict[str, Any]) -> QARecord:
 def load_fix_flags_from_reasons(reasons_csv: Path | None) -> dict[str, list[str]]:
     """Aggregate optional review flags by qa_id.
 
-    Picks up rows where decision != 'keep' (i.e. taxonomy / annotator_rules /
-    cat_l2 / llm_qc flags). Returns {qa_id: sorted unique list of rule_ids}.
+    Picks up rows marked for revision or exclusion and groups their reason
+    fields as {qa_id: sorted unique list of rule_ids}.
     Returns {} if the CSV is missing — callers should treat as 'no flags'.
     """
     out: dict[str, set[str]] = {}

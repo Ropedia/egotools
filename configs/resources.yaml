@@ -1,45 +1,24 @@
-# Existing public resources used by the private code-release candidate.
-# These predate the final paper assets; replace the repo IDs and subdirectories
-# after the 184,679-example / 1,000-question release is published.
+# Final paper resources. Fill in the repository IDs when they are confirmed.
+# Historical bundles are explicitly configured in resources.preview.yaml.
 benchmark:
-  repo_id: egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623
+  repo_id: ""
   repo_type: dataset
-  subdir: benchmark/v5_686_plus_jskim216
-  current_rows: 902
+  subdir: null
   paper_rows: 1000
-  status: pre_release
+  status: pending
 
 training:
-  repo_id: egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623
+  repo_id: ""
   repo_type: dataset
-  subdir: sft/v4_all_backfilled
-  current_rows: 172118
+  subdir: null
   paper_rows: 184679
-  status: pre_release
-  include_patterns: ["sft/v4_all_backfilled/**", "videos/train/**"]
+  status: pending
 
 model:
-  repo_id: egotools-dev/egotools-8b-v3_3
+  repo_id: ""
   repo_type: model
   subdir: null
-  current_training_rows: 116031
-  paper_training_rows: 184679
-  status: pre_release
-  ignore_patterns: ["checkpoint-*/**"]
-
-# The June bundle adds media to these earlier asset collections.
-benchmark_base:
-  repo_id: egotools-dev/egotools_bench_v5_20260505
-  repo_type: dataset
-  subdir: null
-  status: pre_release
-
-training_base:
-  repo_id: egotools-dev/egotools_train_time_excluded_20260504
-  repo_type: dataset
-  subdir: null
-  status: pre_release
-  include_patterns: ["videos/train/**", "README.md"]
+  status: pending
 
 base_model:
   repo_id: Qwen/Qwen3-VL-8B-Instruct

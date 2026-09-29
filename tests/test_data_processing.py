@@ -9,11 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from data_processing.benchmark_construction import build_benchmark
-from data_processing.training import build_train_temporal_split as temporal
+from egotools.data.benchmark import build_benchmark
+from egotools.data.splits import build_train_temporal_split as temporal
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_ROOT = "data_processing.benchmark_construction."
+MODULE_ROOT = "egotools.data.benchmark."
+
+
+@pytest.fixture(autouse=True)
+def working_directory_outside_checkout(tmp_path, monkeypatch):
+    """Exercise installed modules without relying on the repository as cwd."""
+    monkeypatch.chdir(tmp_path)
 
 
 def write_jsonl(path, rows):
@@ -26,7 +32,7 @@ def read_jsonl(path):
 
 
 def cli(module, *args):
-    result = subprocess.run([sys.executable, "-m", module, *map(str, args)], cwd=ROOT,
+    result = subprocess.run([sys.executable, "-m", module, *map(str, args)],
                             text=True, capture_output=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
     return result
@@ -90,7 +96,7 @@ def test_offline_qa_to_reviewed_benchmark_and_source_exclusion(tmp_path):
         {"metadata": {"canonical_video_id": "video2"}, "_index": 8},
         {"videos": ["unresolvable-clip.mp4"], "_index": 11},
     ])
-    cli("data_processing.training.filter_train_eval_overlap", "--eval-dir", final,
+    cli("egotools.data.splits.filter_train_eval_overlap", "--eval-dir", final,
         "--input-jsonl", training, "--output-root", tmp_path / "train-clean")
     kept = read_jsonl(tmp_path / "train-clean" / "train.jsonl")
     assert kept == [{"metadata": {"canonical_video_id": "video2"}, "_index": 0}]
@@ -157,7 +163,7 @@ def test_temporal_cli_excludes_intervals_and_trims_on_frame_boundaries(tmp_path)
         {"canonical_video_id": "v1", "videos": ["v1.mp4"]},
     ])
     out = tmp_path / "split"
-    cli("data_processing.training.build_train_temporal_split", "--eval-dir", benchmark,
+    cli("egotools.data.splits.build_train_temporal_split", "--eval-dir", benchmark,
         "--benchmark-full", timestamps, "--captions-dir", captions, "--videos-dir", videos,
         "--input-jsonl", training, "--output-root", out)
     kept = read_jsonl(out / "train.jsonl")
@@ -180,7 +186,7 @@ def test_missing_evaluation_timestamps_are_not_silently_retained(tmp_path):
 
 
 def test_cached_review_must_match_current_option_texts():
-    from data_processing.benchmark_construction.qa_common import QARecord, latest_matching_eval
+    from egotools.data.benchmark.qa_common import QARecord, latest_matching_eval
 
     record = QARecord(qa_id="q1", source_file="source.json", source_id="source",
                       canonical_video_id="v1", display_name="", annotation_id="a1",
@@ -196,7 +202,7 @@ def test_cached_review_must_match_current_option_texts():
 
 
 def test_distributed_sft_legacy_ids_require_explicit_source_mapping(tmp_path):
-    from data_processing.training.filter_train_eval_overlap import filter_assets, filter_jsonl
+    from egotools.data.splits.filter_train_eval_overlap import filter_assets, filter_jsonl
 
     source = tmp_path / "public-shaped.jsonl"
     rows = [

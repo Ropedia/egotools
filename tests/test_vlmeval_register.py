@@ -7,8 +7,8 @@ from functools import partial
 import pandas as pd
 import pytest
 
-from eval.vlmeval_ext import register
-from eval.vlmeval_ext.egotools_dataset import EgotoolsBench, build_mcq_prompt_text, extract_letter_ah
+from egotools.evaluation.adapters import vlmevalkit as register
+from egotools.evaluation.datasets.egotools import EgotoolsBench, build_mcq_prompt_text, extract_letter_ah
 
 
 def test_pyav_compat_restores_exception_alias(monkeypatch):

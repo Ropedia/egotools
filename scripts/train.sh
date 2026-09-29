@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'HELP'
-Usage: train_qwen3_vl_8b.sh --dataset TRAIN.jsonl --output-dir DIR [options]
+Usage: scripts/train.sh --dataset TRAIN.jsonl --output-dir DIR [options]
 
 Train the Qwen3-VL-8B language model with the EgoTools paper recipe.
 
@@ -108,8 +108,11 @@ command_args=(
   --save_total_limit "${SAVE_TOTAL_LIMIT:-4}"
   --save_only_model true
   --report_to tensorboard
-  "${extra_args[@]}"
 )
+# Bash 3.2 treats expansion of an empty array as unbound under `set -u`.
+if ((${#extra_args[@]})); then
+  command_args+=("${extra_args[@]}")
+fi
 
 print_command() {
   local name

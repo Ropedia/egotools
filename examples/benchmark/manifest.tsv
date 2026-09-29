@@ -1,0 +1,3 @@
+index	video	question	A	B	C	D	E	F	G	H	answer	qa_id	canonical_video_id	research_track_id
+0	videos/synthetic-01.mp4	Which tool is described as having a flat head for turning food?	Spatula	Hammer	Saw	Wrench	Drill	Pliers	Rake	Screwdriver	A	example-001	synthetic-01	AC
+1	videos/synthetic-02.mp4	Which tool is described as having a jaw for gripping a nut?	Spatula	Wrench	Saw	Drill	Rake	Scissors	Brush	Spoon	B	example-002	synthetic-02	PG

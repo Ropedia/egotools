@@ -1,40 +1,133 @@
-# Data and benchmark format
+# Data and Benchmark Format
 
-Media and annotations are distributed separately through Hugging Face. This
-code repository contains no dataset payload, participant records, or private
-review logs. Repository access and permitted uses follow the terms attached
-to the corresponding dataset.
+EgoTools media, annotations, and model weights are distributed separately from
+the code. The paper describes 646 egocentric videos totaling approximately
+100 hours, 361,332 hierarchical captions, 6,519 tool-centric narrations,
+184,679 source-video-disjoint instruction-tuning examples, and a 1,000-question
+benchmark. The benchmark contains 900 human-authored questions and
+100 human-verified spatial questions.
 
-## Paper release and current resources
+The final dataset and model locations are not yet set in
+[`configs/resources.yaml`](../configs/resources.yaml). Earlier resources and
+instructions for using them appear under [Historical resources](#historical-resources).
+Those resources predate the paper's final training and benchmark versions.
 
-The final paper describes 646 rectified egocentric videos totaling 100.36 hours,
-361,332 hierarchical captions, 6,519 tool-centric narrations, 184,679
-source-video-disjoint instruction-tuning examples, and 1,000 eight-way
-benchmark questions. The benchmark combines 900 human-authored questions with
-100 human-verified spatial questions from the 3D annotation pipeline.
+## Resource Configuration
 
-The current `configs/resources.yaml` points to earlier resources: 172,118
-training examples and 902 benchmark questions. The historical training assets
-use temporal exclusion and must not be described as the final paper's
-source-video-disjoint split. Raw fisheye recordings, participant identities,
-and internal review records are outside the code release.
+`egotools-download` reads `configs/resources.yaml` in a source checkout or its
+packaged copy in an installed wheel. Resource locations can be supplied in a
+local YAML file or overridden explicitly. For a repository available to you:
 
-The benchmark base and June addition require manual Hugging Face access
-approval. Request access on both dataset pages while signed into the account
-that will download them, then run `hf auth login` locally with that approved
-account. The training base is ungated, but the training addition uses the same
-manually gated June repository. Public file listings do not establish download
-access: an anonymous attempt to download a benchmark-base MP4 returned HTTP 401.
+```bash
+egotools-download benchmark \
+  --repo-id YOUR_ORG/YOUR_DATASET --subdir benchmark \
+  --metadata-only --output-dir data/huggingface
+```
 
-The June bundle is an addition to earlier media collections. After access is
-approved, download the benchmark base into the directory where the later
-manifest expects its media, then download the addition into the enclosing
-Hub root:
+Replace the repository and subdirectory with the actual resource location;
+`--subdir ''` selects the repository root. Omit `--metadata-only` to include
+media, use `--revision` to pin a Hub revision, and use `--dry-run` to inspect the
+download plan. Gated resources require access approval and `hf auth login` with
+an approved account. Their own licenses and access terms apply.
+
+## Benchmark Manifest
+
+Evaluation consumes a UTF-8 TSV with one row per question:
+
+| Column | Meaning |
+| --- | --- |
+| `index` | Unique row index |
+| `video` | Relative full-video asset path |
+| `question` | Multiple-choice question |
+| `A` ... `H` | Option columns |
+| `answer` | Gold letter selecting a non-empty option |
+| `qa_id` | Unique question identifier |
+| `canonical_video_id` | Stable source-video identifier |
+| `clip_video` | Optional relative question-clip path |
+| `qtype` | Optional fine-grained question type |
+| `research_track_id` | Optional research track: `AC`, `PG`, `PD`, or `SR` |
+
+A runnable dataset has this layout:
+
+```text
+benchmark/
+├── manifest.tsv
+├── videos/               # paths referenced by the video column
+└── clips/                # optional paths referenced by clip_video
+```
+
+The validator requires the `A` through `H` columns, at least two non-empty
+options, and a non-empty gold option. It accepts older mixed-choice data;
+passing validation does not establish that a manifest is the final eight-choice
+paper benchmark. The eight-choice builder produces eight non-empty options.
+The [synthetic example](../examples/benchmark/manifest.tsv) illustrates the
+schema without including video files.
+
+```bash
+egotools-validate-manifest /path/to/benchmark/manifest.tsv \
+  --asset-root /path/to/benchmark --asset-mode full
+```
+
+Media paths are relative to the asset root. The validator rejects absolute paths
+and parent traversal. `--asset-root` additionally checks that the selected files
+exist. To combine a separate manifest and media directory, use
+`egotools-materialize` as described in [Evaluation](EVALUATION.md#prepare-a-benchmark).
+
+## Source-Video Separation
+
+The paper separates training and benchmark data by canonical source video
+before constructing instructions and questions. The
+[`egotools.data.splits.filter_train_eval_overlap`](../src/egotools/data/splits/filter_train_eval_overlap.py)
+module implements whole-source exclusion. It reads `canonical_video_id` or
+`metadata.canonical_video_id`. Legacy `video_id` fields require an explicit
+`--source-id-map` JSON object mapping those IDs to canonical IDs; filenames alone
+do not establish source independence. Records with unresolved source identities
+are excluded and counted.
+
+Run source filtering on original annotations before preparing model-input SFT
+JSONL, because SFT preparation removes provenance metadata. Generated benchmark
+JSONL copies selected QA fields rather than raw annotator/editor identity fields.
+Local build and review reports may contain source paths and should remain local.
+
+The temporal split utility retains complements of reserved evaluation intervals.
+It supports the earlier experimental protocol and is distinct from whole-source
+exclusion. Frame-indexed annotations require complete evaluation timestamps and
+constant-frame-rate media. See [Data Processing](DATA_PROCESSING.md) for these
+commands, input schemas, and review-status handling.
+
+## Historical Resources
+
+The following repositories were used for earlier experiments and software
+validation. Their mapping is retained in
+[`configs/resources.preview.yaml`](../configs/resources.preview.yaml), which
+must be selected explicitly with `--config`. They are not the final
+184,679-example / 1,000-question paper release.
+
+| Resource | Repository | Scope |
+| --- | --- | --- |
+| Added training and benchmark data | [egotools_v4_backfilled_sft_v5_902_20260623](https://huggingface.co/datasets/egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623) | 172,118-example SFT and 902-question benchmark; additions to earlier media |
+| Benchmark base | [egotools_bench_v5_20260505](https://huggingface.co/datasets/egotools-dev/egotools_bench_v5_20260505) | Earlier benchmark media |
+| Training base | [egotools_train_time_excluded_20260504](https://huggingface.co/datasets/egotools-dev/egotools_train_time_excluded_20260504) | Earlier training media and temporal-exclusion protocol |
+| Model checkpoint | [egotools-8b-v3_3](https://huggingface.co/egotools-dev/egotools-8b-v3_3) | Earlier 116,031-example training run |
+
+The benchmark base and June addition require manual Hub access approval. Request
+access on both dataset pages and authenticate with the approved account. The
+training base is ungated, but the training addition uses the gated June
+repository. A public file listing does not grant permission to download files.
+
+### Historical Benchmark
+
+Download the base into the directory expected by the later manifest, then add
+the June bundle at the enclosing root:
 
 ```bash
 egotools-download benchmark-base \
+  --config configs/resources.preview.yaml \
   --output-dir data/huggingface/benchmark/v5_686_plus_jskim216
-egotools-download benchmark --output-dir data/huggingface
+
+egotools-download benchmark \
+  --config configs/resources.preview.yaml \
+  --output-dir data/huggingface
 
 egotools-prepare-manifest \
   data/huggingface/benchmark/v5_686_plus_jskim216/final.tsv \
@@ -47,134 +140,80 @@ egotools-validate-manifest \
   --asset-mode full
 ```
 
-`benchmark-base` points to `egotools-dev/egotools_bench_v5_20260505`; the later
-bundle is `egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623`.
 The historical `final.tsv` repeats some integer indices. Preparation writes
 sequential indices in a separate TSV while preserving `qa_id`, questions,
-answers, and media paths. The combined Hub file inventory covers all 902
-full-video references and 899 of 902 clip references; clip-mode experiments
-must account for those three missing clips. Inventory coverage does not
-establish that every media file decodes correctly.
+answers, and media paths. The combined Hub inventory covers all 902 full-video
+references and 899 of 902 clip references. Use full-video evaluation for this
+bundle; a non-empty missing clip path causes clip-mode evaluation to fail.
+File inventory checks do not establish that every video decodes correctly.
 
-Training likewise needs both base and added media at the same snapshot root:
+### Historical Training Data
 
-```bash
-egotools-download training-base --output-dir data/huggingface-training
-egotools-download training --output-dir data/huggingface-training
-```
-
-`training-base` selects `videos/train/` from
-`egotools-dev/egotools_train_time_excluded_20260504`. `training` downloads the
-later `sft/v4_all_backfilled/` annotations and added `videos/train/` assets.
-A full metadata scan found 172,118 training rows and 405 unique relative video
-references. All 405 paths appear in the combined base/addition Hub file
-inventory. This verifies paths and counts; it does not verify all video bytes
-or decoding. Training media references resolve from that shared root, not
-from the nested JSONL directory. See [TRAINING.md](TRAINING.md) for model-input
-preparation and launcher usage.
-
-Run any source-ID filtering on the original JSONL first; model-input
-preparation removes the metadata that source filtering needs. The distributed
-JSONL has heterogeneous nested metadata and failed the pinned MS-Swift loader
-after 5,766 examples. Prepare a uniform model-input JSONL before training:
+Merge the training base and additional media into one root:
 
 ```bash
-python training/prepare_sft.py \
+egotools-download training-base \
+  --config configs/resources.preview.yaml \
+  --output-dir data/huggingface-training
+
+egotools-download training \
+  --config configs/resources.preview.yaml \
+  --output-dir data/huggingface-training
+
+egotools-prepare-sft \
   data/huggingface-training/sft/v4_all_backfilled/final.jsonl \
   --output data/huggingface-training/train.swift.jsonl
 ```
 
-The prepared file was loaded successfully for all 172,118 rows by the pinned
-MS-Swift dataset loader. Preparation preserves model message/video inputs; it
-does not apply `start_frame`/`end_frame`, crop media, or establish a source split.
-Using a filtered input changes the resulting row count. The example above
-prepares the historical mixture exactly as distributed.
+The 172,118-row JSONL references 405 unique relative video paths, all present in
+the combined repository inventories. Media paths resolve from the shared root,
+not the nested annotation directory. Run source filtering first if needed;
+the command above prepares the historical mixture as distributed.
 
-## Benchmark manifest
+The raw JSONL contains heterogeneous nested metadata and failed the pinned
+MS-Swift dataset loader after 5,766 examples. The prepared copy loaded all
+172,118 rows successfully. Preparation preserves model message and media inputs;
+it does not crop clips using `start_frame`/`end_frame` or establish a source
+split. See [Training](TRAINING.md#prepare-training-inputs) for launch-directory
+and input-format details.
 
-Evaluation consumes a UTF-8 TSV with one row per question:
+### Historical Checkpoint
 
-| Column | Meaning |
+```bash
+egotools-download model \
+  --config configs/resources.preview.yaml \
+  --output-dir checkpoints/preview
+```
+
+The earlier checkpoint's `args.json` reports effective batch 128 through
+per-device batch 2 and accumulation 8. Its repository root is an intermediate
+checkpoint from a 116,031-example run. It can be inspected or used with the
+Qwen3-VL-8B preset; it does not reproduce the final paper model.
+
+### Reconstruction Limits
+
+Consuming these packaged files is different from rebuilding their curation.
+Measured checks on the historical metadata found:
+
+| Task | Available evidence and missing inputs |
 | --- | --- |
-| `index` | Unique row index |
-| `video` | Relative full-video asset path |
-| `question` | Multiple-choice question |
-| `A` ... `H` | Option columns; unused options may be empty in historical data |
-| `answer` | Gold letter selecting a non-empty option |
-| `qa_id` | Unique question identifier |
-| `canonical_video_id` | Stable source-video identifier |
-| `clip_video` | Optional relative question-clip path |
-| `qtype` | Optional fine-grained question type |
-| `research_track_id` | Optional track label; final paper labels are `AC`, `PG`, `PD`, `SR` |
+| Prepare the 902-question manifest | Unique `qa_id` values; integer indices need preparation |
+| Verify training media references | 172,118 rows and 405 relative paths; inventories cover all paths, without full video decoding |
+| Normalize earlier reviewed QA | The 686-row eight-option `normalized.jsonl` lacks canonical IDs for 42 rows, causing direct normalization to fail |
+| Rebuild source-based QA | Required per-source `annotation_manifest.json` files are absent; all 686 normalized rows have empty `source_file` and `source_id` |
+| Reapply human review decisions | Required append-only review edit log is absent |
+| Reconstruct temporal exclusions | Complete benchmark timestamps, source IDs, and original frame-indexed annotations are absent |
+| Reconstruct the final paper mixture | Final split membership, a complete source-ID crosswalk, and generation inputs are unavailable in these earlier bundles |
 
-The validator requires the `A` through `H` columns, at least two non-empty
-options, and a non-empty gold option. This accommodates the older mixed-choice
-bundle. New output from the eight-choice builder has eight non-empty options.
-Do not infer that passing the generic validator establishes the paper's exact
-question count, option count, or human review status.
+For source filtering, only 56,087 of the 172,118 training rows contain explicit
+canonical IDs; the other 116,031 contain legacy IDs in a different namespace.
+The conservative whole-source filter retained 56,087 rows and excluded the
+unresolved rows. A partial crosswalk derived from 158 explicit ID pairs
+increased the retained subset to 91,331 rows, leaving 80,787 unresolved. Neither
+result reconstructs the paper mixture. A zero-overlap result that ignores
+unresolved IDs is not evidence of complete source separation.
 
-Package media paths are relative to the asset root. For a builder-produced
-package this is the directory containing `manifest.tsv`. The validator rejects
-absolute paths and parent traversal in media fields; `--asset-root` and
-`--asset-mode` additionally check the selected files exist. Generated JSONL
-uses selected QA fields and does not copy raw annotator/editor identity fields.
-Local build and review reports can contain source paths and should remain local.
-
-## Split construction
-
-The final paper protocol separates training and benchmark examples by canonical
-source video before constructing instructions and questions.
-`data_processing/training/filter_train_eval_overlap.py` implements whole-source
-exclusion. It reads `canonical_video_id` or `metadata.canonical_video_id`;
-legacy `video_id` fields are used only with an explicit `--source-id-map` JSON
-object mapping those IDs to canonical IDs. Clip filenames alone cannot
-establish source independence. Records whose source identity is unknown are
-excluded and counted.
-
-The historical 172,118-row SFT file does not provide canonical IDs for 116,031
-rows. Those rows carry legacy `metadata.video_id` values in another namespace.
-Only 56,087 rows have explicit canonical IDs. Running the corrected filter on
-the full SFT file against the current 902-question benchmark retained those
-56,087 rows and excluded 116,031 unresolved rows. No known canonical IDs in
-that retained subset matched benchmark IDs. This is a partial, conservatively
-filtered dataset, not a reproduction of the 184,679-example paper mixture.
-A complete source-ID crosswalk is needed to decide the remaining rows; the
-release does not infer one from truncated or transformed filenames. Joining
-explicit `video_id`/`canonical_video_id` pairs already present in the same SFT
-file provides 158 source mappings. A second actual run with that partial
-mapping retained 91,331 rows and still excluded 80,787 unresolved rows; the
-available metadata therefore does not supply a complete crosswalk.
-
-The historical `build_train_temporal_split.py` retains temporal complements of
-reserved evaluation intervals. It remains available for reproducing that
-experimental protocol, with an explicit distinction from whole-source
-exclusion. It requires complete evaluation timestamps and constant-frame-rate
-media for frame-indexed annotations.
-
-The processing commands, schemas, review status behavior, and track-label
-limitations are documented in [data_processing/README.md](../data_processing/README.md).
-
-
-## What can be reconstructed from the available files
-
-The following checks used the actual Hub metadata, not only synthetic fixtures.
-They distinguish consuming a packaged dataset from reconstructing its curation.
-
-| Step | Required inputs | Current availability and actual check |
-| --- | --- | --- |
-| Prepare the historical benchmark | Current `final.tsv` | Available after repository access; 902 rows and unique `qa_id` values; integer indices need preparation |
-| Use historical training media paths | SFT JSONL plus base/addition media | 172,118 rows scanned; all 405 referenced paths are listed in the combined repositories |
-| Normalize existing reviewed QA | QA texts, options, canonical IDs | The older public `normalized.jsonl` has 686 eight-option rows, but 42 lack canonical IDs; direct normalization fails on those records |
-| Rebuild a benchmark from original source annotations | Per-source `annotation_manifest.json`, source filenames/IDs, media | Per-source manifests are absent from the configured repositories; all 686 rows of the older normalized file have empty `source_file` and `source_id`; source-based build fails |
-| Reapply human review decisions | Append-only review edit log | The required edit log is absent from the configured repositories |
-| Suggest research tracks | QA texts/options | The rule-based script ran on all 686 older normalized rows; this does not reproduce the paper's curated track labels |
-| Reconstruct the temporal split | Complete benchmark source timestamps, canonical source IDs, original frame-indexed annotations | The required complete timestamp and source-ID inputs are absent from the configured repositories |
-| Reconstruct the final paper mixture | Final split membership, complete source-ID mapping, generation inputs/recipe | The configured resources predate the final paper mixture; the released utilities and historical data do not reproduce its 184,679 rows |
-
-Some historical summaries mention internal source files and an old pending
-upload state. The measured Hub inventory is the evidence for current file
-presence; internal path strings in those summaries are not usable downloads.
-The source-processing CLI examples in `data_processing/README.md` document how
-to use those tools when the required inputs are supplied. They are not a claim
-that an external user can currently rebuild the complete dataset from the
-configured Hub resources.
+Rule-based track assignment was exercised on the older 686-row QA file, but its
+output is not the paper's curated labeling. The processing examples describe how
+to run the tools when the required inputs are supplied. [Validation](VALIDATION.md)
+records the measured checks and their limits.

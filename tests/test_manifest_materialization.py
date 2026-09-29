@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from eval.scripts.materialize_manifest_dataset import materialize_manifest_dataset, resolve_asset_root
+from egotools.evaluation.materialize import materialize_manifest_dataset, resolve_asset_root
 
 
 class MaterializeManifestDatasetTest(unittest.TestCase):

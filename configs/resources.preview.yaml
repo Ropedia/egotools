@@ -1,0 +1,48 @@
+# Historical resources used in the September 2026 validation runs.
+# Select explicitly with --config configs/resources.preview.yaml.
+# These are not the paper's 184,679-example / 1,000-question release.
+benchmark:
+  repo_id: egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623
+  repo_type: dataset
+  subdir: benchmark/v5_686_plus_jskim216
+  current_rows: 902
+  paper_rows: 1000
+  status: pre_release
+
+training:
+  repo_id: egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623
+  repo_type: dataset
+  subdir: sft/v4_all_backfilled
+  current_rows: 172118
+  paper_rows: 184679
+  status: pre_release
+  include_patterns: ["sft/v4_all_backfilled/**", "videos/train/**"]
+
+model:
+  repo_id: egotools-dev/egotools-8b-v3_3
+  repo_type: model
+  subdir: null
+  current_training_rows: 116031
+  paper_training_rows: 184679
+  status: pre_release
+  ignore_patterns: ["checkpoint-*/**"]
+
+# The June bundle adds media to these earlier asset collections.
+benchmark_base:
+  repo_id: egotools-dev/egotools_bench_v5_20260505
+  repo_type: dataset
+  subdir: null
+  status: pre_release
+
+training_base:
+  repo_id: egotools-dev/egotools_train_time_excluded_20260504
+  repo_type: dataset
+  subdir: null
+  status: pre_release
+  include_patterns: ["videos/train/**", "README.md"]
+
+base_model:
+  repo_id: Qwen/Qwen3-VL-8B-Instruct
+  repo_type: model
+  subdir: null
+  status: public

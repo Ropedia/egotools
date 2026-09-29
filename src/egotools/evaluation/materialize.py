@@ -100,7 +100,7 @@ def materialize_manifest_dataset(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog="egotools-materialize", description=__doc__)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--source-root", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)

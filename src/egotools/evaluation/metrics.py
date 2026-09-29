@@ -4,14 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-for path in (_REPO_ROOT / "src", _REPO_ROOT / "eval", _REPO_ROOT):
-    sys.path.insert(0, str(path))
-
-from vlmeval_ext.egotools_dataset import EgotoolsBench  # noqa: E402
+from egotools.evaluation.datasets.egotools import EgotoolsBench
 
 
 def _locate_pred_file(work_dir: Path, model_name: str) -> Path:

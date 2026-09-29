@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import csv
+import os
+import subprocess
 import sys
 import types
 from pathlib import Path
 
 import pytest
 
-from eval.scripts.run_eval import (
+from egotools.evaluation.runner import (
     ensure_hf_model_available,
     find_vlmevalkit_run,
     make_limited_dataset_root,
@@ -144,7 +146,8 @@ def test_real_model_dry_run_uses_checkout_without_download_or_output(tmp_path, m
     assert "EgotoolsBench_custom_full_64frame" in capsys.readouterr().out
 
 
-def test_real_runner_hands_off_to_external_process_and_aggregates(tmp_path, monkeypatch):
+@pytest.mark.parametrize("nproc_per_node", [1, 2])
+def test_real_runner_hands_off_to_external_process_and_aggregates(tmp_path, monkeypatch, nproc_per_node):
     root = _dataset(tmp_path)
     checkout = tmp_path / "upstream"
     checkout.mkdir()
@@ -161,7 +164,7 @@ def test_real_runner_hands_off_to_external_process_and_aggregates(tmp_path, monk
         pd.DataFrame([{"answer": "A", "prediction": "A"}]).to_excel(output, index=False)
         return types.SimpleNamespace(returncode=0)
 
-    monkeypatch.setattr("eval.scripts.run_eval.subprocess.run", run)
+    monkeypatch.setattr("egotools.evaluation.runner.subprocess.run", run)
     assert (
         run_real_model(
             bench_version="custom",
@@ -172,18 +175,23 @@ def test_real_runner_hands_off_to_external_process_and_aggregates(tmp_path, monk
             dataset_root=str(root),
             vlmevalkit_dir=str(checkout),
             model_path=str(checkpoint),
-            nproc_per_node=2,
+            nproc_per_node=nproc_per_node,
         )
         == 0
     )
-    assert seen["command"][:4] == [sys.executable, "-m", "torch.distributed.run", "--standalone"]
+    if nproc_per_node == 1:
+        assert seen["command"][:3] == [sys.executable, "-m", "egotools.evaluation._torchrun_entry"]
+    else:
+        assert seen["command"][:4] == [sys.executable, "-m", "torch.distributed.run", "--standalone"]
+        module_index = seen["command"].index("--module")
+        assert seen["command"][module_index + 1] == "egotools.evaluation._torchrun_entry"
     assert seen["env"]["EGOTOOLS_MODEL_PATH"] == str(checkpoint)
     assert (Path(seen["env"]["EGOTOOLS_BENCH_ROOT"]) / "manifest.tsv").is_file()
     assert (tmp_path / "result" / "results.json").is_file()
 
 
 def test_entry_initializes_upstream_before_importing_adapter(tmp_path, monkeypatch):
-    from eval.scripts import _torchrun_entry
+    from egotools.evaluation import _torchrun_entry
 
     upstream = tmp_path / "run.py"
     upstream.write_text(
@@ -195,31 +203,59 @@ def test_entry_initializes_upstream_before_importing_adapter(tmp_path, monkeypat
         "    assert os.environ['ADAPTER_READY'] == '1'\n"
         "    os.environ['UPSTREAM_MAIN_RAN'] = '1'\n"
     )
-    registration = types.ModuleType("vlmeval_ext.register")
+    registration = types.ModuleType("egotools.evaluation.adapters.vlmevalkit")
 
     def register_adapter():
-        import os
-
         assert os.environ["UPSTREAM_READY"] == "1"
-        os.environ["ADAPTER_READY"] = "1"
+        monkeypatch.setenv("ADAPTER_READY", "1")
         return True
 
     registration.register_egotools_bench = register_adapter
-    monkeypatch.setitem(sys.modules, "vlmeval_ext.register", registration)
+    monkeypatch.setitem(sys.modules, "egotools.evaluation.adapters.vlmevalkit", registration)
     monkeypatch.setenv("EGOTOOLS_VLMEVALKIT_RUN", str(upstream))
     monkeypatch.delenv("ADAPTER_READY", raising=False)
     monkeypatch.setenv("UPSTREAM_READY", "0")
     monkeypatch.setenv("UPSTREAM_MAIN_RAN", "0")
-    monkeypatch.setattr(sys, "path", list(sys.path))
+    original_path = list(sys.path)
     monkeypatch.setattr(sys, "argv", ["entry", "--", "--help"])
     _torchrun_entry.main()
-    import os
-
     assert os.environ["UPSTREAM_MAIN_RAN"] == "1"
+    assert sys.path == original_path
+
+
+def test_installed_entry_runs_outside_checkout_without_early_torch_import(tmp_path):
+    upstream = tmp_path / "run.py"
+    upstream.write_text(
+        "import sys, types\n"
+        "assert 'torch' not in sys.modules\n"
+        "assert 'vlmeval' not in sys.modules\n"
+        "assert 'egotools.evaluation.datasets.egotools' not in sys.modules\n"
+        "registration = types.ModuleType('egotools.evaluation.adapters.vlmevalkit')\n"
+        "def register():\n"
+        "    registration.ready = True\n"
+        "    return True\n"
+        "registration.register_egotools_bench = register\n"
+        "sys.modules[registration.__name__] = registration\n"
+        "def load_env():\n"
+        "    assert registration.ready\n"
+        "def main():\n"
+        "    assert sys.argv[1:] == ['--data', 'fake']\n"
+        "    print('entry completed')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-I", "-m", "egotools.evaluation._torchrun_entry", "--", "--data", "fake"],
+        cwd=tmp_path,
+        env={**os.environ, "EGOTOOLS_VLMEVALKIT_RUN": str(upstream)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "entry completed"
 
 
 def test_aggregation_deduplicates_upstream_prediction_symlink(tmp_path):
-    from eval.scripts._aggregate_metrics import aggregate_results
+    from egotools.evaluation.metrics import aggregate_results
 
     model_root = tmp_path / "Model"
     run_root = model_root / "run-1"
@@ -236,7 +272,7 @@ def test_aggregation_deduplicates_upstream_prediction_symlink(tmp_path):
 
 
 def test_aggregation_still_reports_two_distinct_prediction_tables(tmp_path):
-    from eval.scripts._aggregate_metrics import _locate_pred_file
+    from egotools.evaluation.metrics import _locate_pred_file
 
     for run_name in ("run-1", "run-2"):
         run_root = tmp_path / "Model" / run_name

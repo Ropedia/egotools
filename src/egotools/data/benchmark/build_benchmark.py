@@ -24,13 +24,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-# Support both direct script and package module invocation.
-if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from _resolvers import VideoRefs, resolve_video_refs  # type: ignore
-else:
-    from ._resolvers import VideoRefs, resolve_video_refs
-
+from egotools.data.benchmark._resolvers import VideoRefs, resolve_video_refs
 
 # --------------------------------------------------------------------------- #
 # Columns consumed by evaluation and track reporting

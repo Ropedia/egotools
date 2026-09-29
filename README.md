@@ -1,148 +1,168 @@
-# EgoTools
+<div align="center">
 
-Official code for **EgoTools: Towards Tool-Centric Reasoning in Real-World
-Egocentric Videos**.
+# EgoTools: Towards Tool-Centric Reasoning
 
-EgoTools combines a 100.36-hour egocentric tool-use corpus, a 1,000-question
-diagnostic benchmark, and an 8B reference model. This repository contains only
-the public data-processing, training, and evaluation code. Dataset media and
-model weights are hosted on Hugging Face and are intentionally excluded from
-Git history.
+**in Real-World Egocentric Videos**
 
-> **Private release candidate.** The code version is `1.0.0`, but no `v1.0.0`
-> tag or public GitHub Release has been created yet. The final code license and
-> final paper-aligned Hugging Face resources remain to be supplied before the
-> repository is made public. See [the release checklist](docs/RELEASE_CHECKLIST.md).
+<a href="">Paper</a> ·
+<a href="https://ropedia.github.io/egotools/">Project Page</a> ·
+<a href="">Dataset</a> ·
+<a href="">Models</a>
 
-**Reproduction status:** the utilities, a two-video Qwen3-VL-8B inference run,
-and a one-step Qwen3-VL-2B training smoke test have been exercised. The final
-paper experiments and complete data reconstruction have **not** been reproduced.
-See [the measured validation scope](docs/VALIDATION.md).
+</div>
 
-## Resources
+## Overview
 
-| Resource | Location | Current status |
-| --- | --- | --- |
-| Project page and paper PDF | <https://ropedia.github.io/egotools/> | Available |
-| Public model checkpoint | <https://huggingface.co/egotools-dev/egotools-8b-v3_3> | Earlier 116,031-example checkpoint; not the final 184,679-example paper model |
-| Earlier data bundle | <https://huggingface.co/datasets/egotools-dev/egotools_v4_backfilled_sft_v5_902_20260623> | Access approval required; 172,118-example SFT / 902-QA bundle, not the final paper release |
-| Base model | <https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct> | Available |
+**EgoTools** studies how people select, use, and reason about tools in real-world
+egocentric videos. It brings together a video corpus with hierarchical and
+tool-centric annotations, a diagnostic benchmark, and an instruction-tuned
+vision-language model.
 
-The resource mapping lives in [`configs/resources.yaml`](configs/resources.yaml).
-All download commands accept explicit repository overrides so the code can be
-used immediately when the final paper-aligned Hub repositories are published.
+| Component | Description |
+| --- | --- |
+| **EgoTools-Data** | Approximately 100 hours of egocentric video, with 361,332 hierarchical captions and 6,519 tool-centric narrations |
+| **EgoTools-Bench** | 1,000 eight-choice questions across Affordance & Causality, Perception & Grounding, Procedural Dynamics, and Spatial Reasoning |
+| **EgoTools-8B** | Qwen3-VL-8B-Instruct fine-tuned on 184,679 examples, with training and benchmark data separated by source video |
 
-## Repository layout
+This repository provides data preparation, benchmark evaluation, and the training
+recipe. Final paper, dataset, and model links are pending; the checks completed
+so far and their scope are recorded in [Validation](docs/VALIDATION.md).
 
-```text
-configs/                    Resource and training configuration
-data_processing/            Benchmark construction and leakage-safe split tools
-docs/                        Data, training, evaluation, and release documentation
-eval/                        VLMEvalKit adapter and evaluation runner
-src/egotools/                Lightweight download, validation, and scoring CLIs
-tests/                       Unit and smoke tests
-training/                    Paper training launcher and dependency specification
-```
+## Installation
 
-The repository deliberately does **not** contain video/audio media, annotation
-submissions, participant or annotator metadata, internal review systems,
-experiment caches, model weights, copied third-party repositories, or private
-development history.
-
-## Quick start
-
-Create a lightweight environment for downloads, validation, and scoring:
+Use Python 3.10 or newer. From the repository root:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[data,eval,test]'
+python -m pip install -e '.[eval]'
 ```
 
-The benchmark base and incremental bundle require Hugging Face access approval.
-Request access on their dataset pages and authenticate with the approved account
-using `hf auth login`; publicly visible file lists do not grant download access.
-Then download the current benchmark metadata (no GPU or media download required):
+This installs the dataset utilities, CPU mock evaluator, and scorer. GPU model
+inference uses [VLMEvalKit](docs/EVALUATION.md#install-vlmevalkit), and training
+uses a separate [MS-Swift environment](docs/TRAINING.md#environment).
+
+<details>
+<summary>Optional dependencies</summary>
 
 ```bash
-egotools-download benchmark --metadata-only --output-dir data/huggingface
-```
+# Gemini-assisted annotation tools
+python -m pip install -e '.[data]'
 
-The historical 902-question bundle has duplicate integer row indices. Create
-a TSV with sequential indices, preserving every question and its `qa_id`, then
-validate it:
-
-```bash
-egotools-prepare-manifest \
-  data/huggingface/benchmark/v5_686_plus_jskim216/final.tsv \
-  --output data/benchmark/manifest.tsv
-egotools-validate-manifest data/benchmark/manifest.tsv --expected-rows 902
-```
-
-Exercise prompt construction and scoring with a deterministic mock model:
-
-```bash
-python eval/scripts/run_eval.py \
-  --dataset-root data/benchmark --bench-version preview902 \
-  --model mock --smoke --limit 10
-```
-
-This mock run does not decode videos or measure model accuracy. Real inference
-needs the base and incremental media downloads described in
-[`docs/EVALUATION.md`](docs/EVALUATION.md).
-
-Score a complete model prediction file using the same answer parser as the
-evaluation adapter:
-
-```bash
-egotools-score predictions.tsv \
-  --manifest data/benchmark/manifest.tsv \
-  --output-dir outputs/my-model
-```
-
-For full model inference through VLMEvalKit, follow
-[`docs/EVALUATION.md`](docs/EVALUATION.md). For the paper training recipe, see
-[`docs/TRAINING.md`](docs/TRAINING.md).
-
-## Reproducibility boundary
-
-The paper reports a final 184,679-example training mixture and a 1,000-question
-benchmark consisting of 900 human-authored questions and 100 human-verified
-spatial questions. The currently public Hub bundle predates that final version.
-The public bundle combines assets from two Hub repositories. Their file lists
-cover all 902 `video` references; three optional `clip_video` files are absent.
-The evaluation setup has been installed in a new isolated conda environment,
-and a real two-video 64-frame Qwen3-VL-8B run has been exercised. Training has
-been tested through a single 2B optimizer step and a full 172,118-row data load
-after [SFT preparation](docs/TRAINING.md). Full 8B training and paper-model
-evaluation have not been rerun for this candidate.
-
-The public files also lack complete source-ID mappings and original curation
-inputs. They are insufficient to reconstruct the paper's source-video split
-or regenerate its benchmark. [DATA.md](docs/DATA.md) lists the missing inputs
-and measured outcomes; a zero-overlap report from unresolved IDs is not valid
-evidence of source separation.
-
-For local checks:
-
-```bash
+# Development checks
+python -m pip install -e '.[test]'
 python -m pytest -q
 ```
 
-[`docs/VALIDATION.md`](docs/VALIDATION.md) records the checks and limitations.
-The installable Python wheel provides the four `egotools-*` utilities. Clone
-this repository (or use the source distribution) for training, data-processing,
-and VLMEvalKit entry points.
+</details>
+
+## Quick Start
+
+The two synthetic questions in [`examples/`](examples/) demonstrate the manifest,
+prediction, and metric formats. They run locally without downloading data,
+weights, or videos:
+
+```bash
+egotools-validate-manifest examples/benchmark/manifest.tsv --expected-rows 2
+
+egotools-evaluate \
+  --dataset-root examples/benchmark --bench-version example \
+  --model mock --smoke --mock-mode fixed --mock-letter A \
+  --results-dir outputs/example
+
+egotools-score examples/predictions.jsonl \
+  --manifest examples/benchmark/manifest.tsv \
+  --output-dir outputs/scoring
+```
+
+The fixed-answer mock scores **1/2**; the supplied example predictions score
+**2/2**. These are format demonstrations, with no video decoding or model
+inference. Inspect `outputs/example/<run-id>/results.json` and
+`outputs/scoring/metrics.json` for the resulting metrics.
+
+## Data
+
+The benchmark uses a TSV manifest with relative video paths, a question, options
+`A` through `H`, a gold answer, and stable question/source identifiers. Media and
+model weights are downloaded separately and remain outside this repository.
+
+- [Data format and downloads](docs/DATA.md)
+- [Benchmark construction and source-video split tools](docs/DATA_PROCESSING.md)
+
+The default [resource configuration](configs/resources.yaml) reserves the final
+release locations. Earlier experimental resources are documented separately in
+[Historical resources](docs/DATA.md#historical-resources).
+
+## Evaluation
+
+After preparing a benchmark and installing the inference environment, run an
+upstream model preset:
+
+```bash
+egotools-evaluate \
+  --dataset-root /path/to/benchmark \
+  --model Qwen3-VL-8B-Instruct --nframe 64 \
+  --results-dir outputs/qwen3-vl-8b
+```
+
+Use `--model-path /path/to/checkpoint` to evaluate a local checkpoint with the
+same architecture. The evaluator reports overall accuracy, answer-extraction
+coverage, and accuracy by question type and research track. See the
+[Evaluation guide](docs/EVALUATION.md) for environment setup, media preparation,
+distributed inference, and scoring existing predictions.
+
+## Training
+
+The reference recipe fine-tunes the language-model component of Qwen3-VL-8B,
+while freezing the vision encoder and multimodal aligner. Inspect the command
+without requiring a GPU or downloading a model:
+
+```bash
+bash scripts/train.sh \
+  --dataset /path/to/train.swift.jsonl \
+  --model Qwen/Qwen3-VL-8B-Instruct \
+  --output-dir outputs/egotools-8b \
+  --dry-run
+```
+
+Follow the [Training guide](docs/TRAINING.md) to prepare inputs and install the
+pinned dependencies. The human-readable settings are in
+[`configs/training/`](configs/training/).
+
+## Repository Structure
+
+```text
+configs/                  Resource mappings and evaluation/training environments
+docs/                     Data, evaluation, training, and validation guides
+examples/                 Synthetic inputs for the offline quick start
+scripts/                  Environment setup and training launchers
+src/egotools/
+├── data/                 Benchmark construction, source splits, and SFT preparation
+├── evaluation/           Runner, dataset adapter, materialization, and metrics
+├── resources.py          Resource download configuration and CLI
+├── manifest.py           Manifest validation
+├── prepare.py            Manifest preparation
+├── answers.py            Shared multiple-choice answer extraction
+└── score.py              Prediction-file scoring
+tests/                    Unit and integration checks
+third_party/              Notices for adapted upstream code
+```
 
 ## Citation
 
-Citation metadata is provided in [`CITATION.cff`](CITATION.cff). The final
-bibliographic entry will be added when the archival paper identifier is
-available.
+Citation metadata is available in [`CITATION.cff`](CITATION.cff). The final paper
+link and BibTeX entry will be added when available.
+
+## Acknowledgments
+
+EgoTools builds on [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL),
+[MS-Swift](https://github.com/modelscope/ms-swift), and
+[VLMEvalKit](https://github.com/open-compass/VLMEvalKit). See
+[Third-party software](docs/THIRD_PARTY.md) for attribution and dependency
+revisions.
 
 ## License
 
-The project license has not yet been selected by the authors. Until a `LICENSE`
-file is added, this private release candidate is not ready for public reuse or
-redistribution. Third-party components remain governed by their own licenses;
-see [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md).
+The project license is pending. Third-party components retain their upstream
+licenses; release prerequisites are tracked in the
+[Release checklist](docs/RELEASE_CHECKLIST.md).

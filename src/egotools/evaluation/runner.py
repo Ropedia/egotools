@@ -22,35 +22,14 @@ from typing import Any
 
 import pandas as pd
 
-# ----------------------------------------------------------------------
-# sys.path bootstrap so this script works either as
-#   python eval/scripts/run_eval.py ...
-# or as
-#   python -m eval.scripts.run_eval ...
-# without requiring a pip-install of the eval/ tree.
-# ----------------------------------------------------------------------
-_THIS_FILE = Path(__file__).resolve()
-_REPO_ROOT = _THIS_FILE.parents[2]  # <repo>/eval/scripts/run_eval.py -> <repo>
-_EVAL_ROOT = _REPO_ROOT / "eval"
-
-for p in (_REPO_ROOT / "src", _EVAL_ROOT, _REPO_ROOT):
-    sp = str(p)
-    if sp not in sys.path:
-        sys.path.insert(0, sp)
-
-# The lightweight adapter also supports the CPU mock path.
-from vlmeval_ext.egotools_dataset import (  # noqa: E402
+from egotools.evaluation.datasets.egotools import (
     EgotoolsBench,
     build_mcq_prompt_text,
     extract_letter_ah,
     resolve_dataset_root,
 )
 
-# ----------------------------------------------------------------------
-# Result paths
-# ----------------------------------------------------------------------
-
-_RESULTS_DIR = _EVAL_ROOT / "results"
+_RESULTS_DIR = Path("outputs/evaluation")
 
 _MODEL_ALIASES = {
     "qwen3vl8binstruct": "Qwen3-VL-8B-Instruct",
@@ -143,7 +122,7 @@ def ensure_hf_model_available(
         max_workers = int(os.environ.get("EGOTOOLS_HF_MAX_WORKERS", "1"))
         last_exc: Exception | None = None
         print(
-            f"[run_eval] model snapshot not found locally; downloading {repo_id} "
+            f"[egotools-evaluate] model snapshot not found locally; downloading {repo_id} "
             f"(retries={retries}, max_workers={max_workers})",
             flush=True,
         )
@@ -160,7 +139,7 @@ def ensure_hf_model_available(
                     break
                 sleep_s = min(60, 10 * attempt)
                 print(
-                    f"[run_eval] download attempt {attempt}/{retries} failed: "
+                    f"[egotools-evaluate] download attempt {attempt}/{retries} failed: "
                     f"{type(exc).__name__}: {exc}; retrying in {sleep_s}s",
                     flush=True,
                 )
@@ -338,7 +317,7 @@ def find_vlmevalkit_run(directory: str | None = None) -> Path:
         if candidate.is_file():
             return candidate
         raise FileNotFoundError(f"VLMEvalKit run.py not found: {candidate}")
-    local = _EVAL_ROOT / "VLMEvalKit" / "run.py"
+    local = Path("third_party/VLMEvalKit/run.py").resolve()
     if local.is_file():
         return local
     spec = importlib.util.find_spec("vlmeval")
@@ -346,7 +325,7 @@ def find_vlmevalkit_run(directory: str | None = None) -> Path:
         installed = Path(spec.origin).resolve().parents[1] / "run.py"
         if installed.is_file():
             return installed
-    raise FileNotFoundError("VLMEvalKit run.py not found; run eval/setup/setup_env.sh or pass --vlmevalkit-dir")
+    raise FileNotFoundError("VLMEvalKit run.py not found; run scripts/setup_eval.sh or pass --vlmevalkit-dir")
 
 
 def run_real_model(
@@ -399,12 +378,19 @@ def run_real_model(
     reserved = {"--data", "--model", "--work-dir", "--config"}
     if any(arg.split("=", 1)[0] in reserved for arg in passthrough_args):
         raise ValueError("--extra cannot override --data, --model, --work-dir, or --config; use runner options")
-    entry = _EVAL_ROOT / "scripts" / "_torchrun_entry.py"
     inner_args = ["--data", dataset_alias, "--model", model, "--work-dir", str(out_dir), *passthrough_args]
     cmd = [sys.executable]
     if nproc_per_node > 1:
-        cmd += ["-m", "torch.distributed.run", "--standalone", f"--nproc_per_node={nproc_per_node}"]
-    cmd += [str(entry), "--", *inner_args]
+        cmd += [
+            "-m",
+            "torch.distributed.run",
+            "--standalone",
+            f"--nproc_per_node={nproc_per_node}",
+            "--module",
+        ]
+    else:
+        cmd += ["-m"]
+    cmd += ["egotools.evaluation._torchrun_entry", "--", *inner_args]
     env = os.environ.copy()
     env.update(
         {
@@ -423,9 +409,9 @@ def run_real_model(
         env["EGOTOOLS_MODEL_PATH"] = model_path
     else:
         env.pop("EGOTOOLS_MODEL_PATH", None)
-    print(f"[run_eval] {len(selected)}/{len(rows)} questions; dataset={dataset_alias}")
-    print(f"[run_eval] upstream={run_py}")
-    print(f"[run_eval] command: {shlex.join(cmd)}", flush=True)
+    print(f"[egotools-evaluate] {len(selected)}/{len(rows)} questions; dataset={dataset_alias}")
+    print(f"[egotools-evaluate] upstream={run_py}")
+    print(f"[egotools-evaluate] command: {shlex.join(cmd)}", flush=True)
     if dry_run:
         return 0
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -444,7 +430,7 @@ def run_real_model(
     result = subprocess.run(cmd, env=env, check=False)
     if result.returncode:
         return result.returncode
-    from eval.scripts._aggregate_metrics import aggregate_results
+    from egotools.evaluation.metrics import aggregate_results
 
     aggregate_results(out_dir, model)
     return 0
@@ -457,7 +443,7 @@ def run_real_model(
 
 def build_argparser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="run_eval.py",
+        prog="egotools-evaluate",
         description="Run the egotools VLM benchmark via VLMEvalKit.",
     )
     p.add_argument(
@@ -605,8 +591,8 @@ def main(argv: list[str] | None = None) -> int:
     if Path(run_id).name != run_id or run_id in {".", ".."}:
         parser.error("EGOTOOLS_RUN_ID must be a single directory name")
     out_dir = Path(args.results_dir).expanduser().resolve() / run_id
-    print(f"[run_eval] run_id={run_id}")
-    print(f"[run_eval] out_dir={out_dir}")
+    print(f"[egotools-evaluate] run_id={run_id}")
+    print(f"[egotools-evaluate] out_dir={out_dir}")
 
     # Smoke OR --model mock => smoke runner.
     if args.smoke or args.model.lower() == "mock":
@@ -622,10 +608,10 @@ def main(argv: list[str] | None = None) -> int:
                 dataset_root=args.dataset_root,
             )
         except FileNotFoundError as e:
-            print(f"[run_eval] FATAL: {e}", file=sys.stderr)
+            print(f"[egotools-evaluate] FATAL: {e}", file=sys.stderr)
             return 2
         except Exception as e:
-            print(f"[run_eval] FATAL: {e}", file=sys.stderr)
+            print(f"[egotools-evaluate] FATAL: {e}", file=sys.stderr)
             traceback.print_exc()
             return 1
 
@@ -634,7 +620,7 @@ def main(argv: list[str] | None = None) -> int:
             results["n_total_in_manifest"],
             results["n_evaluated"],
         )
-        print(f"[run_eval] results -> {out_dir}/results.json")
+        print(f"[egotools-evaluate] results -> {out_dir}/results.json")
         return 0
 
     # Real model path.

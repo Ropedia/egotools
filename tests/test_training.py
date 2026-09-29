@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-LAUNCHER = Path(__file__).resolve().parents[1] / "training" / "train_qwen3_vl_8b.sh"
+LAUNCHER = Path(__file__).resolve().parents[1] / "scripts" / "train.sh"
 
 
 def launcher_env(**overrides):

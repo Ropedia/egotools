@@ -1,187 +1,206 @@
 # Evaluation
 
 EgoTools evaluates video multiple-choice questions with options A through H.
-The runner preserves the development benchmark's prompt and answer-extraction
-heuristic. It reports micro-averaged accuracy, extraction coverage, per-`qtype`
-accuracy, and research-track accuracy when the manifest includes track labels:
-`AC` (Affordance & Causality), `PG` (Perception & Grounding), `PD` (Procedural
-Dynamics), and `SR` (Spatial Reasoning).
+The runner reports micro-averaged accuracy, answer-extraction coverage,
+per-`qtype` accuracy, and research-track accuracy when track labels are present:
 
-## Prepare the benchmark
+| Track | Capability |
+| --- | --- |
+| `AC` | Affordance & Causality |
+| `PG` | Perception & Grounding |
+| `PD` | Procedural Dynamics |
+| `SR` | Spatial Reasoning |
 
-Install the lightweight utilities first:
+## Offline Example
+
+Install the evaluation utilities from the repository root:
 
 ```bash
 python -m pip install -e '.[eval]'
+
+egotools-evaluate \
+  --dataset-root examples/benchmark --bench-version example \
+  --model mock --smoke --mock-mode fixed --mock-letter A \
+  --results-dir outputs/example
 ```
 
-See [DATA.md](DATA.md) for the external resources and their current status. The
-currently published 902-question staging bundle is a delta over an earlier
-video bundle, and its original `index` column contains duplicates. Download
-both bundles, then prepare a local manifest with unique sequential indices.
-`qa_id`, question content, answers, and media paths are preserved.
+This reads the two synthetic manifest rows, builds prompts, writes predictions,
+and scores the fixed answer `A` at 1/2. It does not decode videos or run a model.
+Results are written to `outputs/example/<run-id>/results.json` alongside raw and
+scored TSVs. The same command can check another manifest's software path without
+media, using `--limit` to select a subset if desired.
+
+## Prepare a Benchmark
+
+Obtain a manifest and its media as described in [Data](DATA.md). The default
+resource mapping reserves the final release locations; [historical downloads](DATA.md#historical-benchmark)
+require the explicit preview configuration.
+
+Prepare sequential row indices, then pair the manifest with its asset root:
 
 ```bash
-egotools-download benchmark-base \
-  --output-dir data/hf/benchmark/v5_686_plus_jskim216
-egotools-download benchmark --output-dir data/hf
-egotools-prepare-manifest \
-  data/hf/benchmark/v5_686_plus_jskim216/final.tsv \
+egotools-prepare-manifest /path/to/download/final.tsv \
   --output data/prepared/manifest.tsv
-python eval/scripts/materialize_manifest_dataset.py \
+
+egotools-materialize \
   --manifest data/prepared/manifest.tsv \
-  --source-root data/hf/benchmark/v5_686_plus_jskim216 \
+  --source-root /path/to/download \
   --output-dir data/benchmark \
   --asset-mode full
+
 egotools-validate-manifest data/benchmark/manifest.tsv \
-  --expected-rows 902 --asset-root data/benchmark --asset-mode full
+  --asset-root data/benchmark --asset-mode full
 ```
 
-The materializer links the downloaded asset directories into the runnable
-root; `--link-mode copy` is available when symlinks are unsuitable. The source
-assets remain external to Git. Existing unrelated output directories are
-preserved. A Hugging Face cache root with multiple snapshots requires selecting
-the intended snapshot explicitly.
+Preparation preserves `qa_id`, questions, options, answers, and media paths.
+Materialization links the downloaded asset directories into the runnable root;
+`--link-mode copy` is available when symlinks are unsuitable. Existing unrelated
+output content is preserved, and conflicting manifests or asset directories
+cause an error. A Hub cache root with multiple snapshots requires selecting the
+intended snapshot explicitly.
 
-The merged staging resources cover all 902 full-video references. Three
-nonempty clip paths are missing from the public resources checked for this
-release. Use `--video-mode full` for that bundle. Clip mode uses `clip_video`
-and falls back to `video` only when the clip field is empty; it reports a
-missing file when a nonempty clip path cannot be found. Do not interpret the
-staging bundle as the final 1,000-question paper benchmark.
+For the earlier 902-question bundle, the source root after the download commands
+in [Data](DATA.md#historical-benchmark) is
+`data/huggingface/benchmark/v5_686_plus_jskim216`. It covers all full-video
+references but has three missing non-empty clip paths. Use `--video-mode full`
+for that bundle. Clip mode selects `clip_video`, falling back to `video` only
+when the clip field is empty; a non-empty missing clip is an error.
 
-For another manifest, use the same preparation and materialization commands
-with its local path and asset root. `--bench-version` is an output label; it
-can also select a version subfolder under `--dataset-root`.
-
-## CPU mock check
-
-A mock check exercises manifest reading, the unchanged MCQ prompt, prediction
-output, and scoring without downloading a model or decoding videos:
-
-```bash
-python eval/scripts/run_eval.py \
-  --dataset-root data/benchmark \
-  --model mock --limit 10
-```
-
-`--mock-mode fixed --mock-letter A` gives a simple deterministic baseline.
-Mock metrics verify the software path and are not model evaluation results.
+`--dataset-root` can point directly to a directory containing `manifest.tsv`, or
+to its parent when `--bench-version` selects a version subdirectory. The benchmark
+version also labels the outputs; it does not verify a dataset's provenance.
 
 ## Install VLMEvalKit
 
-The repository includes an adapter and launcher; VLMEvalKit remains an external
-dependency. The setup script clones upstream revision
+Real model inference uses an external VLMEvalKit checkout. The setup script
+creates a dedicated conda environment and clones upstream revision
 `e7d64cfa8f6036e1d00e21522aaee0102544ea25` into the ignored
-`eval/VLMEvalKit/` directory and installs it into a dedicated conda environment.
-An existing checkout is reused without changing its revision. The setup script
-sets `PYTHONNOUSERSITE=1` for this conda environment so unrelated packages in
-`~/.local` cannot satisfy installation requirements or override its imports.
+`third_party/VLMEvalKit/` directory:
 
 ```bash
-bash eval/setup/setup_env.sh
+bash scripts/setup_eval.sh
 conda activate egotools_eval
 ```
 
-The recipe uses PyTorch 2.6.0, torchvision 0.21.0, and Transformers 5.6.2.
-The default PyTorch wheel channel is CUDA 12.4; choose a channel supported by
-your driver using `TORCH_INDEX_URL`. CPU wheels can install the framework for
-adapter checks, but the Qwen inference adapter requires a GPU. Set
-`EGOTOOLS_EVAL_ENV` to choose another conda environment name and
-`VLMEVALKIT_DIR` to reuse an external checkout.
+An existing checkout is reused without changing its revision. Set
+`VLMEVALKIT_DIR` to reuse another checkout and `EGOTOOLS_EVAL_ENV` to choose a
+conda environment name. The script sets `PYTHONNOUSERSITE=1` in that environment
+so unrelated user-site packages cannot override the installed dependencies.
 
-If you already manage an inference environment, install the dependency there:
+The recipe uses Python 3.10, PyTorch 2.6.0, torchvision 0.21.0, and Transformers
+5.6.2. CUDA 12.4 is the default PyTorch wheel channel; set `TORCH_INDEX_URL` for
+another driver-compatible channel. CPU wheels can support adapter checks, but
+the Qwen inference adapter requires a GPU.
+
+<details>
+<summary>Install into an existing inference environment</summary>
+
+Install driver-compatible PyTorch wheels first, then:
 
 ```bash
 git clone https://github.com/open-compass/VLMEvalKit.git /path/to/VLMEvalKit
 git -C /path/to/VLMEvalKit checkout e7d64cfa8f6036e1d00e21522aaee0102544ea25
 export PYTHONNOUSERSITE=1
-python -m pip install -c eval/setup/constraints.txt \
+python -m pip install -c configs/evaluation/constraints.txt \
   -e /path/to/VLMEvalKit -e '.[eval]'
-python eval/setup/verify_env.py
+python scripts/verify_eval.py
 ```
 
-Keep `PYTHONNOUSERSITE=1` set when running that environment. For a conda
-environment, `conda env config vars set -n YOUR_ENV PYTHONNOUSERSITE=1` persists
-it for future activations. Install the appropriate PyTorch wheels first.
-Some other VLMEvalKit model families need their own environments and upstream
-dependencies. This repository
-does not bundle those environments or the development VITA-specific patches.
+Keep `PYTHONNOUSERSITE=1` set when running that environment. For conda,
+`conda env config vars set -n YOUR_ENV PYTHONNOUSERSITE=1` persists it for future
+activations. Other VLMEvalKit model families may need separate upstream
+dependencies; the supplied environment targets the Qwen3-VL recipe.
 
-On the tested Linux x86_64 / Python 3.10 installation, `pip check` reports that
-Decord 0.6.0 is unsupported because the wheel's internal metadata contains a
-Python 3.6 tag. Decord imports and the 64-frame video decoding path were executed
-successfully on that installation. This upstream packaging warning remains;
-it should not be mistaken for a clean `pip check` result.
+</details>
 
-## Run a model
+On the tested Linux x86_64 / Python 3.10 installation, `pip check` reported a
+Decord 0.6.0 wheel metadata warning about its internal Python 3.6 tag. Decord
+imports and 64-frame decoding succeeded in that environment. This remains an
+upstream packaging warning, not a clean `pip check` result. See
+[Validation](VALIDATION.md) for the exact runtime checks.
 
-Check the manifest, media references, sampling configuration, and upstream
-entry-point location before model loading:
+## Run a Model
+
+Validate the manifest, media references, sampling settings, and upstream
+entry-point location before loading a model:
 
 ```bash
-python eval/scripts/run_eval.py \
+egotools-evaluate \
   --dataset-root data/benchmark \
   --model Qwen3-VL-8B-Instruct \
-  --vlmevalkit-dir /path/to/VLMEvalKit \
   --nframe 64 --limit 10 --dry-run
 ```
 
 `--dry-run` neither downloads nor initializes a model and does not verify GPU
-inference. Omit `--vlmevalkit-dir` when setup installed the default checkout or
-an editable installation whose source includes `run.py`.
+inference. If the checkout is outside the default location, add
+`--vlmevalkit-dir /path/to/VLMEvalKit` or set `VLMEVALKIT_DIR`. An editable
+VLMEvalKit installation can also supply its source checkout containing `run.py`.
+
+Run on one GPU:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-python eval/scripts/run_eval.py \
+CUDA_VISIBLE_DEVICES=0 egotools-evaluate \
+  --dataset-root data/benchmark \
+  --model Qwen3-VL-8B-Instruct --nframe 64 \
+  --results-dir outputs/qwen3-vl-8b
+```
+
+For distributed inference, specify both the visible devices and process count:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 egotools-evaluate \
   --dataset-root data/benchmark \
   --model Qwen3-VL-8B-Instruct \
   --nframe 64 --nproc-per-node 8
 ```
 
-The launcher uses the current interpreter and `torch.distributed.run` for
-multiple processes. It passes the dataset's frame count to VLMEvalKit. The
-default is 64 uniformly sampled frames; `--fps 1` selects a frame-rate protocol
-instead, and `--nframe 0` delegates sampling to the model's defaults. Upstream
-adapters may differ in how they sample or limit video frames, so a shared frame
-count alone does not make all model inputs identical. Audio and proprietary
-model protocols should follow the settings documented in the paper.
+The launcher uses the active interpreter and `torch.distributed.run` for multiple
+processes. It passes the requested frame count to VLMEvalKit. The default is
+64 uniformly sampled frames; `--fps 1` selects a frame-rate protocol, while
+`--nframe 0` delegates sampling to the model's defaults. Upstream adapters may
+sample or limit frames differently, so a shared frame count does not establish
+identical inputs across models. Audio and proprietary-model protocols should
+follow the paper's settings.
 
-Use a trained checkpoint with its compatible upstream architecture preset:
+Use a local trained checkpoint with its compatible architecture preset:
 
 ```bash
-python eval/scripts/run_eval.py \
+egotools-evaluate \
   --dataset-root data/benchmark \
   --model Qwen3-VL-8B-Instruct \
   --model-path /path/to/merged-checkpoint --nframe 64
 ```
 
-Known Hugging Face model presets use the normal local cache and download a
-missing snapshot when needed. `--no-auto-download-model` requires the snapshot
-to be cached. A `--model-path` directory bypasses model downloads. API models
-use their upstream authentication environment variables and should normally
-run with one process. Pass additional upstream options after `--extra`;
-`--data`, `--model`, `--work-dir`, and `--config` are controlled by this runner.
+Known Hugging Face presets use the local cache and download missing snapshots.
+`--no-auto-download-model` requires the snapshot to be cached. A local
+`--model-path` bypasses model downloads. API models use upstream authentication
+variables and should normally run with one process. Additional upstream options
+can follow `--extra`; `--data`, `--model`, `--work-dir`, and `--config` are
+controlled by the EgoTools runner.
 
-Qwen3-VL uses Transformers when vLLM is unavailable. The adapter selects SDPA
-instead of upstream's required Flash Attention 2; set `EGOTOOLS_QWEN3VL_ATTN`
-or `EGOTOOLS_QWEN2VL_ATTN` to change the attention implementation. MiMo presets
-use the Transformers backend, and the Qwen2.5-Omni `ForVideo` preset evaluates
-visual inputs with audio disabled, matching the existing development recipe.
-Video decode failures are surfaced; this public runner does not rewrite media.
+Qwen3-VL uses Transformers when vLLM is unavailable. The adapter selects SDPA;
+`EGOTOOLS_QWEN3VL_ATTN` and `EGOTOOLS_QWEN2VL_ATTN` override the relevant
+attention implementation. MiMo presets use Transformers. The Qwen2.5-Omni
+`ForVideo` preset evaluates visual inputs with audio disabled, following the
+existing recipe. Decode failures are surfaced rather than rewriting media.
 
-Outputs go to `eval/results/<run-id>/` by default. Mock runs write raw and
-scored TSVs plus `results.json`. Real runs keep VLMEvalKit's prediction table,
-write its adjacent `*_egotools_score.json`, and aggregate `results.json` after
-successful inference. `--results-dir` changes the output parent and
-`EGOTOOLS_RUN_ID` can name a particular run. Use a fresh run ID when changing
-the model checkpoint, dataset, or input protocol to avoid upstream result reuse.
+## Results and Scoring
 
-## Score existing predictions
+Outputs default to `outputs/evaluation/<run-id>/`. `--results-dir` changes the
+parent directory, and `EGOTOOLS_RUN_ID` supplies a run directory name. Use a fresh
+run ID when changing the checkpoint, dataset, or input protocol to avoid
+upstream prediction reuse.
+
+| Output | Contents |
+| --- | --- |
+| `results.json` | Aggregated metrics for the run |
+| Raw and scored TSVs | Mock predictions and extracted answers |
+| VLMEvalKit prediction table | Real-model responses in the upstream format |
+| `*_egotools_score.json` | Metrics next to a real-model prediction table |
 
 The standalone scorer accepts TSV, CSV, and JSONL. Each prediction needs
-`qa_id` or `index`, plus `prediction`. Pair it with the exact manifest used for
-inference (including an intentionally limited subset, if applicable):
+`qa_id` or `index`, plus `prediction`. Pair it with the exact inference manifest,
+including any intentionally selected subset:
 
 ```bash
 egotools-score predictions.tsv \
@@ -189,13 +208,13 @@ egotools-score predictions.tsv \
   --output-dir outputs/model-name
 ```
 
-It writes `metrics.json` and `predictions_scored.tsv`. By default, missing predictions, duplicate rows,
-and inconsistent identities are reported as errors. `--allow-partial` explicitly
-scores only the available predictions and reports their manifest coverage.
+It writes `metrics.json` and `predictions_scored.tsv`. Missing predictions,
+duplicate rows, and inconsistent identities are errors by default.
+`--allow-partial` explicitly scores available predictions and reports manifest
+coverage.
 
-The historical extractor first looks for a standalone A-H letter, including
-answers with explanations, then recognizes answer prefixes and option-text
-matches. The option-text fallback uses containment and token overlap; it is a
-heuristic, not an LLM judge or a strict final-answer parser. Unextracted outputs
-score zero. Both the standalone scorer and the VLMEvalKit adapter use the same
-extraction helper, preserving the development evaluation behavior.
+The shared answer extractor first looks for standalone A–H letters, then answer
+prefixes and option-text matches. Text fallback uses containment and token
+overlap. This is the historical evaluation heuristic, not an LLM judge or a
+strict final-answer parser; unextracted outputs score zero. The standalone scorer
+and VLMEvalKit adapter use the same helper.

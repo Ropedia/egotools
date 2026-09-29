@@ -15,11 +15,10 @@ dist/
 *.egg-info/
 
 # Downloaded datasets, model weights, and generated evaluation artifacts.
-data/
-models/
-outputs/
-eval/VLMEvalKit/
-eval/results/
+/data/
+/models/
+/outputs/
+/third_party/VLMEvalKit/
 *.safetensors
 *.bin
 *.pt

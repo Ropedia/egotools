@@ -13,13 +13,9 @@ import shutil
 import subprocess
 import tempfile
 import time
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
 
 # ─────────────────────────────────────────────────────────────────────
 # Data safety
@@ -308,7 +304,7 @@ class GeminiClient:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Annotation iteration
+# QA records
 # ─────────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -327,48 +323,6 @@ class QARecord:
     raw: dict[str, Any]
 
 
-def iter_qa_records(input_dir: Path) -> Iterator[QARecord]:
-    """Yield one QARecord per annotation across every *.json in input_dir.
-
-    Read-only — never writes. Skips files that don't parse as JSON or
-    don't have an annotations[] field. The qa_id format is
-    `{source_file_stem}#{annotation_id}` so cross-file references stay
-    stable even if file paths change.
-    """
-    p = Path(input_dir)
-    if not p.is_dir():
-        raise FileNotFoundError(f"input_dir not a directory: {p}")
-    for jf in sorted(p.glob("*.json")):
-        try:
-            with jf.open("r", encoding="utf-8") as fh:
-                obj = json.load(fh)
-        except (OSError, json.JSONDecodeError):
-            continue
-        if not isinstance(obj, dict):
-            continue
-        annotations = obj.get("annotations")
-        if not isinstance(annotations, list):
-            continue
-        for ann in annotations:
-            if not isinstance(ann, dict):
-                continue
-            ann_id = str(ann.get("annotation_id") or "")
-            yield QARecord(
-                qa_id=f"{jf.stem}#{ann_id}" if ann_id else f"{jf.stem}#?",
-                source_file=str(jf.name),
-                source_id=str(obj.get("source_id") or ""),
-                canonical_video_id=str(obj.get("canonical_video_id") or ""),
-                display_name=str(obj.get("display_name") or ""),
-                annotation_id=ann_id,
-                question=str(ann.get("question") or ""),
-                answer=str(ann.get("answer") or ""),
-                distractors=[str(d) for d in (ann.get("distractors") or [])],
-                annotator_id=ann.get("annotator_id"),
-                evals=list(ann.get("evals") or []),
-                raw=ann,
-            )
-
-
 # ─────────────────────────────────────────────────────────────────────
 # Eval cache lookup
 # ─────────────────────────────────────────────────────────────────────
@@ -381,7 +335,7 @@ def latest_matching_eval(record: QARecord) -> dict[str, Any] | None:
     """Return the most recent eval whose snapshot matches the current
     question, answer, and option texts. None if no match.
 
-    Used by llm_qc to skip Gemini calls when a stored eval is still
+    Used during normalization to skip Gemini calls when a stored eval is still
     authoritative for the current QA shape.
     """
     cur = (_normq(record.question), _normq(record.answer), len(record.distractors) + 1)
@@ -417,13 +371,12 @@ def write_run_manifest(
     Never includes secrets — caller is responsible for not passing keys
     in `args`.
     """
-    import subprocess
     from datetime import datetime, timezone
     git_sha = ""
     try:
         r = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5, cwd=str(REPO_ROOT),
+            ["git", "-C", str(Path(__file__).resolve().parent), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
         )
         if r.returncode == 0:
             git_sha = r.stdout.strip()

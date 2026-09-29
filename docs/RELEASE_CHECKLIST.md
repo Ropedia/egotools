@@ -1,32 +1,40 @@
-# Release checklist
+# Release Checklist
 
-This document records what the code candidate contains and what remains before
-the authors' planned public paper release.
+This checklist tracks the remaining author-supplied resources and release steps.
+The code version is `1.0.0`; a version number alone does not establish a public
+release or reproduction of the paper experiments.
 
-## Completed for private staging
+## Repository Contents
 
-- The `main` branch is a new root commit with no private development history.
-- Dataset media, model weights, logs, cached results, identities, assignments,
-  annotation submissions, and internal web applications are excluded.
-- `ms-swift` and `VLMEvalKit` are external dependencies rather than vendored
-  repository copies.
-- Code version metadata is set to `1.0.0`.
-- Existing Hugging Face repositories are linked and labeled as pre-release
-  resources where their counts differ from the paper.
+- Installable data preparation, evaluation, download, validation, and scoring
+  modules under `src/egotools/`.
+- Environment recipes, a training launcher, synthetic offline examples, and
+  [measured validation records](VALIDATION.md).
+- External MS-Swift and VLMEvalKit dependencies, with adapted-code notices in
+  [Third-party software](THIRD_PARTY.md).
+- Separate resource mappings for the pending final release and earlier
+  experimental assets.
 
-## Required before public `v1.0.0`
+Dataset media, model weights, experiment outputs, participant records, annotation
+submissions, and internal review systems are outside the source release.
+
+## Before Public Release
 
 - [ ] Select and add the project `LICENSE` file.
-- [ ] Publish or identify the final 184,679-example training repository.
-- [ ] Publish or identify the final 1,000-question benchmark repository.
+- [ ] Publish or identify the final 184,679-example training resource.
+- [ ] Publish or identify the final 1,000-question benchmark resource.
 - [ ] Publish or identify the final paper model checkpoint.
-- [ ] Update `configs/resources.yaml`, README resource links, and expected row
-      counts to those final repositories.
-- [ ] Confirm the final dataset/model licenses and access terms.
-- [ ] Add the archival paper URL and final BibTeX entry to `CITATION.cff`.
-- [ ] Run the smoke evaluation against a fresh download of the final benchmark.
-- [ ] After the private review, change repository visibility and create annotated tag
-      `v1.0.0` and the matching GitHub Release.
+- [ ] Fill `configs/resources.yaml` and the blank README resource links with the
+      confirmed final locations, keeping historical mappings separate.
+- [ ] Confirm dataset/model licenses and access terms.
+- [ ] Add the archival paper link and final citation metadata to `CITATION.cff`.
+- [ ] Verify the final manifests, media references, and source-video split
+      membership using the released metadata.
+- [ ] Run inference on a fresh download of the final benchmark and update
+      `docs/VALIDATION.md` with its actual scope and results.
+- [ ] Review package contents and run the documented offline and development
+      checks from a clean checkout.
+- [ ] After author approval, publish the repository, annotated `v1.0.0` tag,
+      and matching GitHub Release.
 
-The repository stays private during this review, as requested. Selecting a
-project license and publishing the formal release remain author decisions.
+Final licensing, resource publication, and release timing remain author decisions.

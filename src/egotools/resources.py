@@ -70,6 +70,13 @@ def download_resource(
 ) -> Path:
     """Download a resource and return its concrete local content path."""
 
+    if not resource.repo_id:
+        raise ValueError(
+            "The final resource repository is not configured yet. "
+            "Pass --repo-id with a confirmed repository ID, or explicitly select "
+            "--config configs/resources.preview.yaml for historical resources."
+        )
+
     from huggingface_hub import snapshot_download
 
     output_dir = output_dir.expanduser().resolve()
@@ -138,6 +145,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print(json.dumps(plan, indent=2))
         return 0
+    if not resource.repo_id:
+        parser.error(
+            f"{args.resource}: the final repository ID is still blank. "
+            "Pass --repo-id with a confirmed repository ID, or use "
+            "--config configs/resources.preview.yaml for the historical bundle."
+        )
     local_path = download_resource(resource, output_dir=args.output_dir, revision=args.revision, metadata_only=args.metadata_only)
     plan["local_path"] = str(local_path)
     print(json.dumps(plan, indent=2))

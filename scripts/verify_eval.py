@@ -4,7 +4,7 @@ Prints versions of the core libs the eval pipeline depends on and exits 0
 on success. Exits non-zero if any required import fails.
 
 Usage:
-    conda run -n egotools_eval python eval/setup/verify_env.py
+    conda run -n egotools_eval python scripts/verify_eval.py
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import sys
 
 # Required: a missing one means the env is broken.
 REQUIRED = [
+    "egotools",
     "torch",
     "torchvision",
     "transformers",
@@ -72,7 +73,7 @@ def _torch_cuda_summary() -> str | None:
 
 def main() -> int:
     print("=" * 72)
-    print("egotools_eval :: verify_env.py")
+    print("egotools_eval :: verify_eval.py")
     print("=" * 72)
     print(f"python              : {sys.version.split()[0]} ({sys.executable})")
     print(f"platform            : {platform.platform()}")

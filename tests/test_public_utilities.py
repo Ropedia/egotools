@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -144,7 +145,19 @@ def test_resource_config_controls_real_download_arguments(tmp_path):
 
 
 def test_training_download_includes_added_media():
-    assert "videos/train/**" in load_resources()["training"].include_patterns
+    preview = Path(__file__).resolve().parents[1] / "configs" / "resources.preview.yaml"
+    assert "videos/train/**" in load_resources(preview)["training"].include_patterns
     resource = resolve_resource("training", repo_id="example/final", subdir="")
     assert resource.subdir is None
     assert resource.include_patterns == ()
+
+
+def test_unpublished_resources_do_not_download_or_create_output(tmp_path):
+    for name in ("benchmark", "training", "model"):
+        resource = resolve_resource(name)
+        output = tmp_path / name
+        with patch("huggingface_hub.snapshot_download") as download:
+            with pytest.raises(ValueError, match="not configured"):
+                download_resource(resource, output_dir=output)
+        download.assert_not_called()
+        assert not output.exists()

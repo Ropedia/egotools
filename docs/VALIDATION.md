@@ -1,11 +1,41 @@
 # Measured reproduction status
 
-Checked on 2026-09-28. This candidate supports some tested execution paths, but
+This candidate supports some tested execution paths, but
 does not yet reproduce the final paper. Unit tests and mock predictions alone
 are not evidence that the real data, frameworks, training, and evaluation work
 together. The checks below distinguish those cases.
 
-## Actual execution
+## Local package reorganization — 2026-09-29
+
+The cluster's clean release history was transferred at `5a5c6a7`. Data processing
+and evaluation now live in the installable `egotools` package. The following
+checks ran on macOS with a fresh Python 3.12.10 virtual environment:
+
+| Check | Measured result |
+| --- | --- |
+| Regression suite | All 70 tests passed, including the existing data, scoring, training-launcher, and upstream-registration cases |
+| Static checks | Ruff, shell syntax, Git whitespace checks, and `pip check` passed |
+| README quick start | The synthetic two-row manifest validated; fixed-A mock scored 1/2; supplied predictions scored 2/2 |
+| Training command | The documented eight-GPU recipe printed successfully with `--dry-run` under macOS Bash 3.2; no training was launched |
+| Distributions | Source distribution and wheel built successfully; both contain the new package layout and resource configuration |
+| Installed wheel | Replaced the editable installation with the wheel, changed to a temporary directory, and verified imports came from `site-packages`; all seven CLI help commands and six data-processing module entry points worked |
+| Wheel execution | Mock evaluation and prediction scoring also completed from outside the checkout using the installed wheel |
+| Pending resources | A download with a blank final repository ID exited before network access or output-directory creation; historical resources require explicit configuration |
+
+The reorganization removed source-tree import bootstraps and repaired a Bash 3.2
+failure when the training launcher received no extra arguments. Output directories
+are separate from the source package, and the root `/data/` ignore rule no longer
+matches `src/egotools/data/`.
+
+These local checks exercise CPU execution and packaging. The reorganized version
+has not been rerun on GPU; the earlier GPU measurements below apply to the
+previous layout. Full paper reproduction remains unverified.
+
+## Cluster execution — 2026-09-28, before the package reorganization
+
+These are preserved measurements from the previous repository layout at
+commits `415cac8` and `5a5c6a7`. They do not establish GPU execution of the
+subsequent package reorganization.
 
 | Path | What was actually run | Result and limit |
 | --- | --- | --- |
@@ -40,7 +70,8 @@ its final `results.json` and exited 0 without a separate recovery command.
 - Evaluation setup disables Python's user site during installation and saves
   that setting for conda activation. The original installation had silently
   borrowed four dependencies from `~/.local`.
-- `training/prepare_sft.py` creates a model-input-only JSONL before Arrow loading.
+- `egotools-prepare-sft` creates a model-input-only JSONL before Arrow loading
+  (formerly `training/prepare_sft.py`).
   Keep the original metadata for source auditing and filter sources before
   stripping that metadata. The converter does not trim videos or reconstruct
   train/test separation.

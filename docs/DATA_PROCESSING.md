@@ -3,10 +3,11 @@
 These scripts expose the reusable QA and split-processing steps from the
 research workspace. The repository contains code and prompt templates; source
 annotations, review logs, manifests, participant information, and media are
-supplied separately. Run the commands from a source checkout. Every input and
-output path is explicit; no private directory layout is assumed. The currently
-configured Hub resources do not include every source input needed to recreate
-the original curation. See the availability table in `docs/DATA.md` before
+supplied separately. Install the package with `python -m pip install -e .`
+from the repository root, then run the modules below from any working directory.
+Every input and output path is explicit; no private directory layout is assumed.
+The currently configured Hub resources do not include every source input needed to recreate
+the original curation. See the availability table in [Data](DATA.md) before
 attempting source reconstruction.
 
 Offline normalization, track assignment, review extraction, and benchmark
@@ -34,7 +35,7 @@ Flat rows with `normalized_options` and a zero-based `correct_index` are also
 accepted. For nested rows, source IDs may be carried in `record._video`.
 
 ```bash
-python -m data_processing.benchmark_construction.normalize_to_8choice \
+python -m egotools.data.benchmark.normalize_to_8choice \
   --input-jsonl /path/to/input/qa.jsonl \
   --output-dir /path/to/normalized \
   --mode checks_only
@@ -85,7 +86,7 @@ Paths in this source manifest are absolute or relative to the manifest's own
 directory. Output manifests contain relative media paths.
 
 ```bash
-python -m data_processing.benchmark_construction.build_benchmark \
+python -m egotools.data.benchmark.build_benchmark \
   --normalized-run /path/to/normalized \
   --workspace-sources-root /path/to/sources \
   --output-root /path/to/builds \
@@ -110,20 +111,20 @@ fields. It writes validation results and exits nonzero if required QA/media
 checks fail.
 
 ```bash
-python -m data_processing.benchmark_construction.extract_final_reviewed_qa \
+python -m egotools.data.benchmark.extract_final_reviewed_qa \
   --manifest /path/to/builds/review_20260101/manifest.jsonl \
   --package-dir /path/to/builds/review_20260101 \
   --edits /path/to/edits.jsonl \
   --output /path/to/reviewed.jsonl \
   --report /path/to/review-report.json
 
-python -m data_processing.benchmark_construction.assign_benchmark_research_tracks \
+python -m egotools.data.benchmark.assign_benchmark_research_tracks \
   --input /path/to/reviewed.jsonl \
   --output /path/to/tracked.jsonl \
   --report /path/to/track-report.json \
   --exclude-dropped
 
-python -m data_processing.benchmark_construction.build_benchmark \
+python -m egotools.data.benchmark.build_benchmark \
   --input-jsonl /path/to/tracked.jsonl \
   --workspace-sources-root /path/to/sources \
   --output-root /path/to/builds \
@@ -144,7 +145,7 @@ review statuses before a final build.
 This is the source-video-disjoint split used for the paper protocol:
 
 ```bash
-python -m data_processing.training.filter_train_eval_overlap \
+python -m egotools.data.splits.filter_train_eval_overlap \
   --eval-dir /path/to/benchmark \
   --input-jsonl /path/to/training/train.jsonl \
   --output-root /path/to/train-disjoint
@@ -162,7 +163,7 @@ resolved canonical source ID are excluded and counted.
 In the distributed historical 172,118-row SFT file, 116,031 rows lack canonical
 IDs; the default filter excludes them and retains 56,087 rows with known IDs.
 This measured result is a partial filtered subset, not the paper training
-mixture. See `docs/DATA.md` for the missing source inputs and access requirements.
+mixture. See [Data](DATA.md) for the missing source inputs and access requirements.
 Repeat `--input-jsonl` for files with distinct basenames. Media references in
 retained records remain unchanged.
 
@@ -181,7 +182,7 @@ source. This is not source-video separation and does not reproduce the final
 paper training split.
 
 ```bash
-python -m data_processing.training.build_train_temporal_split \
+python -m egotools.data.splits.build_train_temporal_split \
   --eval-dir /path/to/benchmark \
   --benchmark-full /path/to/qa-timestamps.jsonl \
   --captions-dir /path/to/captions \

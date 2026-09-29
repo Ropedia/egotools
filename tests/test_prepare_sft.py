@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from training.prepare_sft import prepare_sft
+from egotools.data.prepare_sft import prepare_sft
 
 
 def test_preserves_model_inputs_and_order_while_removing_varied_provenance(tmp_path):
