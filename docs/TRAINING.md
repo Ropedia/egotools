@@ -71,20 +71,18 @@ python -c "from swift.pipelines import sft_main; sft_main(['--help'])"
 
 The paper mixture contains **184,679 examples**. Its model-input JSONL and all
 referenced media (3,729 videos and 7,595 images, about 107 GB) are in the
-access-restricted dataset configured as `training` in
-[`configs/resources.yaml`](../configs/resources.yaml). Download it with an
-approved account:
+`sft/` folder of [EgoTools-Data](https://huggingface.co/datasets/ropedia-ai/egotools-data/tree/main/sft),
+configured as `training` in [`configs/resources.yaml`](../configs/resources.yaml):
 
 ```bash
-hf auth login
-egotools-download training --output-dir data/egotools-sft
+egotools-download training --output-dir data/egotools-data
 ```
 
-The download root contains `train_184679.swift.jsonl`, a 128-row
-`smoke_128.swift.jsonl`, the media under `data_final_v4_sft_v5_902_20260625/`,
-and `provenance/` with the paper run's original JSONL, arguments, logs, and
-scores. Media paths are relative to the download root, so launch from that
-directory. The JSONL already contains only `messages`, `videos`, and `images`;
+The command prints the local `sft/` path. It contains `train_184679.swift.jsonl`,
+a 128-row `smoke_128.swift.jsonl`, the media under
+`data_final_v4_sft_v5_902_20260625/`, and `provenance/` with the paper run's
+original JSONL, arguments, and logs. Media paths are relative to `sft/`, so
+launch from that directory. The JSONL already contains only `messages`, `videos`, and `images`;
 `egotools-prepare-sft` is not needed.
 
 | Rows | Video entry | Images |
@@ -184,11 +182,11 @@ including its merger and DeepStack projectors. `--torch_dtype bfloat16` enables
 BF16 training, and `--attn_impl flash_attn` selects FlashAttention 2. MS-Swift
 passes the image/video budgets and FPS bounds to `qwen-vl-utils`.
 
-Run the default recipe on the final data from the download root (smoke-test
+Run the default recipe on the final data from its `sft/` folder (smoke-test
 first with `--dataset smoke_128.swift.jsonl -- --max_steps 2`):
 
 ```bash
-cd data/egotools-sft
+cd data/egotools-data/sft
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 NPROC_PER_NODE=8 \
 bash /path/to/EgoTools/scripts/train.sh \
   --dataset train_184679.swift.jsonl \

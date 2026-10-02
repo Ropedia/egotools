@@ -99,18 +99,18 @@ Defaults follow the paper: EgoTools-8B and instruct baselines use 64 frames, Qwe
 
 ## Training
 
-The reference recipe fine-tunes the **language-model component of Qwen3-VL-8B** while freezing the vision encoder and multimodal aligner. Set up the [training environment](docs/TRAINING.md#environment), which installs MS-Swift at the paper run's revision with the EgoTools video-entry patch, download the [final training data](docs/TRAINING.md#final-training-data), and launch the eight-GPU recipe from the data root:
+The reference recipe fine-tunes the **language-model component of Qwen3-VL-8B** while freezing the vision encoder and multimodal aligner. Set up the [training environment](docs/TRAINING.md#environment), which installs MS-Swift at the paper run's revision with the EgoTools video-entry patch, download the [final training data](docs/TRAINING.md#final-training-data) from the `sft/` folder of EgoTools-Data, and launch the eight-GPU recipe from that folder:
 
 ```bash
 python3.10 -m venv .venv-train && source .venv-train/bin/activate
 bash scripts/setup_train.sh
-egotools-download training --output-dir data/egotools-sft
+egotools-download training --output-dir data/egotools-data
 
-cd data/egotools-sft
+cd data/egotools-data/sft
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 NPROC_PER_NODE=8 \
-bash ../../scripts/train.sh \
+bash ../../../scripts/train.sh \
   --dataset train_184679.swift.jsonl \
-  --output-dir ../../outputs/egotools-8b
+  --output-dir ../../../outputs/egotools-8b
 ```
 
 The [evaluation](docs/EVALUATION.md#validation-scope) and [training](docs/TRAINING.md#validation-scope) guides record the measured runtime checks. The complete paper experiments have not yet been reproduced with the released resources.
