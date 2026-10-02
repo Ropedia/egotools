@@ -10,9 +10,10 @@ benchmark. The benchmark contains 900 human-authored questions and
 The paper links to [EgoTools-Data](https://huggingface.co/datasets/ropedia-ai/egotools-data)
 and [EgoTools-8B](https://huggingface.co/ropedia-ai/egotools-8b). As of October 2,
 2026, the public data repository contains 131 recording episodes under
-`<uuid>/ep1/`, with videos, captions, and sensor annotations. Its `manifest.json`
-is an asset inventory; it does not supply the benchmark question table or SFT
-JSONL required by the commands below. The model repository returned HTTP 401
+`raw/<uuid>/ep1/`, with videos, captions, and sensor annotations, and the final
+SFT export under `sft/` (see [Training](TRAINING.md#final-training-data)).
+`raw/manifest.json` is an asset inventory; the repository does not supply the
+benchmark question table required by the commands below. The model repository returned HTTP 401
 to an anonymous metadata request, so public checkpoint access was not verified.
 Earlier runnable resources appear under [Historical resources](#historical-resources).
 
@@ -21,8 +22,10 @@ Earlier runnable resources appear under [Historical resources](#historical-resou
 `egotools-download` reads `configs/resources.yaml` in a source checkout or its
 packaged copy in an installed wheel. Resource locations can be supplied in a
 local YAML file or overridden explicitly. The model mapping is
-`ropedia-ai/egotools-8b`; benchmark and training mappings remain blank pending
-their question-table and SFT exports. With access to the model repository, download it with:
+`ropedia-ai/egotools-8b`, and the training mapping is the `sft/` folder of
+EgoTools-Data described in [Training](TRAINING.md#final-training-data); the benchmark
+mapping remains blank pending its question-table export. With access to the model
+repository, download it with:
 
 ```bash
 egotools-download model --output-dir models/egotools-8b

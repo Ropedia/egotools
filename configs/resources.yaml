@@ -1,6 +1,8 @@
 # Paper dataset: https://huggingface.co/datasets/ropedia-ai/egotools-data
-# The public repository currently contains recording assets; benchmark question
-# tables and training SFT exports need separate mappings. Override with --repo-id/--subdir.
+# The public repository holds recording assets under raw/ and the final 184,679-row
+# SFT export with media under sft/ (media paths relative to sft/, see
+# docs/TRAINING.md#final-training-data). The benchmark question table needs a
+# separate mapping. Override with --repo-id/--subdir.
 # Historical bundles are explicitly configured in resources.preview.yaml.
 benchmark:
   repo_id: ""
@@ -10,11 +12,11 @@ benchmark:
   status: pending
 
 training:
-  repo_id: ""
+  repo_id: ropedia-ai/egotools-data
   repo_type: dataset
-  subdir: null
+  subdir: sft
   paper_rows: 184679
-  status: pending
+  status: paper
 
 model:
   repo_id: ropedia-ai/egotools-8b

@@ -17,7 +17,8 @@ Options:
   -- ARGS...        Append explicit ms-swift overrides for another experiment.
 
 Runtime controls: CUDA_VISIBLE_DEVICES, NPROC_PER_NODE, MASTER_PORT,
-DATASET_NUM_PROC, DATALOADER_NUM_WORKERS, SAVE_STEPS, SAVE_TOTAL_LIMIT.
+DATASET_NUM_PROC, DATALOADER_NUM_WORKERS, SAVE_STEPS, SAVE_TOTAL_LIMIT,
+SWIFT_PYTHON (interpreter used to check the MS-Swift patch; default python).
 See docs/TRAINING.md for dependencies, video settings, and dataset availability.
 HELP
 }
@@ -64,6 +65,8 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 export FPS="${FPS:-2}"
 export FPS_MIN_FRAMES="${FPS_MIN_FRAMES:-64}"
 export FPS_MAX_FRAMES="${FPS_MAX_FRAMES:-64}"
+# The paper run fixed each video frame at 128 visual tokens (min = max).
+export VIDEO_MIN_TOKEN_NUM="${VIDEO_MIN_TOKEN_NUM:-128}"
 export VIDEO_MAX_TOKEN_NUM="${VIDEO_MAX_TOKEN_NUM:-128}"
 export IMAGE_MAX_TOKEN_NUM="${IMAGE_MAX_TOKEN_NUM:-1024}"
 export FORCE_QWENVL_VIDEO_READER="${FORCE_QWENVL_VIDEO_READER:-decord}"
@@ -119,7 +122,7 @@ print_command() {
   printf 'env'
   for name in CUDA_VISIBLE_DEVICES NPROC_PER_NODE MASTER_PORT OMP_NUM_THREADS \
     TOKENIZERS_PARALLELISM PYTORCH_CUDA_ALLOC_CONF FPS FPS_MIN_FRAMES \
-    FPS_MAX_FRAMES VIDEO_MAX_TOKEN_NUM IMAGE_MAX_TOKEN_NUM FORCE_QWENVL_VIDEO_READER; do
+    FPS_MAX_FRAMES VIDEO_MIN_TOKEN_NUM VIDEO_MAX_TOKEN_NUM IMAGE_MAX_TOKEN_NUM FORCE_QWENVL_VIDEO_READER; do
     printf ' %q' "$name=${!name}"
   done
   printf ' %q' "${command_args[@]}"
@@ -133,6 +136,17 @@ fi
 
 [[ -f "$DATASET" ]] || fail "dataset does not exist: $DATASET"
 command -v "$swift_bin" >/dev/null 2>&1 || fail "ms-swift is not installed; see docs/TRAINING.md"
+# Dict video entries ({"video": ...}, optionally with video_start/video_end) load only with
+# the patched MS-Swift from scripts/setup_train.sh; unpatched revisions fail on every such row.
+if grep -q -F '{"video":' "$DATASET"; then
+  "${SWIFT_PYTHON:-python}" - 2>/dev/null <<'PY' || fail "dataset uses dict video entries, but MS-Swift (checked with ${SWIFT_PYTHON:-python}) lacks the EgoTools video-entry patch; run scripts/setup_train.sh"
+import inspect
+
+from swift.template.templates.qwen import Qwen2VLTemplate
+
+raise SystemExit(0 if "isinstance(video, dict)" in inspect.getsource(Qwen2VLTemplate.replace_tag) else 1)
+PY
+fi
 mkdir -p "$OUTPUT_DIR"
 # pipefail preserves a failed training process's exit status through tee.
 { print_command; "${command_args[@]}"; } 2>&1 | tee -a "$OUTPUT_DIR/train.log"
