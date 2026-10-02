@@ -1,0 +1,43 @@
+.env
+.env.*
+!.env.example
+.venv/
+.venv-*/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Downloaded datasets, model weights, and generated evaluation artifacts.
+/data/
+/models/
+/outputs/
+/third_party/VLMEvalKit/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.mp4
+*.wav
+*.mov
+*.mkv
+*.avi
+*.mp3
+*.flac
+*.npz
+*.npy
+
+# Keep the published project-page demos with the static website.
+!/website/static/videos/**
+
+# Local editor and operating-system state.
+.DS_Store
+.idea/
+.vscode/

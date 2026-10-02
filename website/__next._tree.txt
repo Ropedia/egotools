@@ -1,0 +1,5 @@
+:HL["/egotools/_next/static/chunks/0wxk~~eiu1dk1.css","style"]
+:HL["/egotools/_next/static/media/geist_latin-s.p.09~u27dqhyhd6.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/egotools/_next/static/media/geist_mono_latin-s.p.08e28id.o-okb.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/egotools/_next/static/chunks/0.mavi_8wreb2.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"MZSWXyrsJE-HFXxWuGUSp"}

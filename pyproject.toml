@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "egotools"
+version = "1.0.0"
+description = "Data processing, training, and evaluation code for EgoTools"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  {name = "EgoTools Authors"},
+]
+dependencies = [
+  "huggingface-hub>=0.27",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+data = [
+  "requests>=2.31",
+  "tqdm>=4.66",
+]
+eval = [
+  "pandas>=2.0",
+  "openpyxl>=3.1",
+]
+test = [
+  "pytest>=8.0",
+  "ruff>=0.8",
+]
+
+[project.scripts]
+egotools-download = "egotools.resources:main"
+egotools-score = "egotools.score:main"
+egotools-validate-manifest = "egotools.manifest:main"
+egotools-prepare-benchmark = "egotools.prepare:main"
+egotools-evaluate = "egotools.evaluation.runner:main"
+egotools-prepare-sft = "egotools.data.prepare_sft:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/egotools"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"configs/resources.yaml" = "egotools/resources.yaml"
+"configs/resources.preview.yaml" = "egotools/resources.preview.yaml"
+"third_party/LICENSE-VLMEvalKit" = "egotools/LICENSE-VLMEvalKit"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/", "configs/", "scripts/", "tests/", "docs/*.md", "third_party/LICENSE-VLMEvalKit", "README.md", "CITATION.cff", "pyproject.toml", ".gitignore"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]

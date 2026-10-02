@@ -1,0 +1,28 @@
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+# Linux x86_64, Python 3.11, CUDA 12.4. These are direct dependency pins,
+# not a complete environment lock. Install FlashAttention separately (see docs).
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+
+accelerate==1.13.0
+# The pinned ms-swift revision declares datasets>=3.0,<4.0. The captured
+# development environment's 4.8.4 cannot be resolved with that requirement.
+datasets==3.6.0
+decord==0.6.0
+deepspeed==0.18.9
+huggingface-hub==0.36.2
+modelscope==1.36.3
+numpy==2.2.6
+peft==0.19.1
+pillow==11.3.0
+qwen-vl-utils==0.0.14
+safetensors==0.7.0
+sentencepiece==0.2.1
+tensorboard==2.20.0
+tiktoken==0.12.0
+tokenizers==0.22.2
+transformers==4.57.6
+trl==0.29.1
+
+ms-swift @ git+https://github.com/modelscope/ms-swift.git@44c92c7cea08bf3b6e9f9b05ab182b6e81b0a7c7

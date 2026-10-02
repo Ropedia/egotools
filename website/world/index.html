@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Explore Kitchen, Research Lab, and Repair Workshop tools through a lightweight 3D EgoTools demo and release-approved egocentric clips."
+    />
+    <title>EgoTools 3D Playground (Experimental)</title>
+    <meta name="theme-color" content="#0f6c73" />
+    <link rel="icon" href="../static/images/favicon.svg?v=20260930" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../static/css/world.css?v=20260930-brand-v2" />
+  </head>
+  <body>
+    <a class="skip-link" href="#world-main">Skip to the interactive explorer</a>
+
+    <header class="world-header">
+      <a class="brand" href="../#home" aria-label="Return to the EgoTools project page">
+        <img class="brand-logo" src="../static/images/egotools-logo-dark.svg" width="306" height="64" alt="EgoTools" />
+      </a>
+      <div class="world-header-actions">
+        <span class="world-mode-label">3D Playground · Experimental</span>
+        <a class="back-link" href="../#world">Back to project page</a>
+      </div>
+    </header>
+
+    <main id="world-main" class="world-main">
+      <section class="world-intro" aria-labelledby="world-title">
+        <div>
+          <p class="eyebrow">Experimental 3D Playground · Three-room demo</p>
+          <h1 id="world-title">Explore tool use in context</h1>
+          <p>
+            Move through each low-poly environment, select a highlighted object, and inspect the
+            associated EgoTools clip and reasoning example.
+          </p>
+        </div>
+        <div class="world-legend" aria-label="Demo legend">
+          <span><i class="legend-dot legend-avatar"></i> Your position</span>
+          <span><i class="legend-dot legend-tool"></i> Selectable tool</span>
+          <span><kbd>WASD</kbd> or arrows to move</span>
+        </div>
+      </section>
+
+      <nav class="room-navigation" aria-label="Jump directly to a room" data-room-navigation></nav>
+
+      <div class="world-experience" data-world-experience>
+        <section class="world-stage" aria-labelledby="active-room-title">
+          <div class="stage-heading">
+            <div>
+              <p class="stage-kicker">Active room</p>
+              <h2 id="active-room-title" data-active-room-title>Kitchen</h2>
+            </div>
+            <p data-active-room-description></p>
+          </div>
+
+          <div class="canvas-shell" data-canvas-shell>
+            <canvas
+              id="world-canvas"
+              tabindex="0"
+              aria-label="Interactive low-poly world. Use WASD or arrow keys to move. Use the room and tool buttons after the canvas for an equivalent keyboard-accessible experience."
+            ></canvas>
+
+            <div class="loading-screen" data-loading-screen role="status" aria-live="polite">
+              <div class="loading-mark">E</div>
+              <p class="loading-category" data-loading-category>Loading world interface</p>
+              <strong data-loading-title>Preparing the explorer</strong>
+              <div class="loading-track" aria-hidden="true"><span data-loading-progress></span></div>
+              <span class="loading-percent" data-loading-percent>8%</span>
+              <button class="retry-button" type="button" data-retry hidden>Retry</button>
+            </div>
+
+            <div class="canvas-hud" aria-hidden="true">
+              <span class="canvas-room-chip" data-canvas-room>Kitchen</span>
+              <span class="canvas-instruction" data-canvas-instruction>Move with WASD or arrows · click a tool</span>
+            </div>
+
+            <button class="fallback-switch" type="button" data-show-fallback>
+              Browse in 2D
+            </button>
+          </div>
+
+          <div class="tool-navigation">
+            <div class="tool-navigation-heading">
+              <div>
+                <p class="stage-kicker">Tools in this room</p>
+                <h3>Select without the canvas</h3>
+              </div>
+              <p>Every 3D interaction is also available as a keyboard-accessible control.</p>
+            </div>
+            <div class="tool-button-list" data-tool-list></div>
+          </div>
+        </section>
+
+        <aside
+          class="clip-panel"
+          data-clip-panel
+          aria-hidden="true"
+          aria-labelledby="clip-panel-title"
+        ></aside>
+      </div>
+
+      <section class="fallback-explorer" data-fallback hidden aria-labelledby="fallback-title">
+        <div class="fallback-heading">
+          <div>
+            <p class="eyebrow">Accessible 2D explorer</p>
+            <h2 id="fallback-title">Browse the same rooms and clips</h2>
+            <p data-fallback-message>
+              Choose a room and tool below. The same approved media and reasoning examples are available without WebGL.
+            </p>
+          </div>
+          <button class="secondary-button" type="button" data-try-3d>Try 3D view</button>
+        </div>
+        <div class="fallback-room-grid" data-fallback-rooms></div>
+      </section>
+
+      <noscript>
+        <section class="noscript-message">
+          <h2>JavaScript is required for this explorer</h2>
+          <p>The main EgoTools project page and its representative examples remain available.</p>
+          <a href="../#world">Browse examples on the project page</a>
+        </section>
+      </noscript>
+    </main>
+
+    <footer class="world-footer">
+      <p><strong>EgoTools</strong> · Tool-Centric Reasoning in Real-World Egocentric Videos</p>
+      <p>No analytics, playback tracking, or external data transmission is used in this demo.</p>
+    </footer>
+
+    <script type="module">
+      import("../static/js/world-dist/world.js?v=20260730-world-v1").catch(() => {
+        const loading = document.querySelector("[data-loading-screen]");
+        const title = document.querySelector("[data-loading-title]");
+        const category = document.querySelector("[data-loading-category]");
+        const retry = document.querySelector("[data-retry]");
+        loading?.classList.add("is-error");
+        if (title) title.textContent = "The interactive module could not load";
+        if (category) category.textContent = "The academic project page is still available.";
+        if (retry) {
+          retry.hidden = false;
+          retry.addEventListener("click", () => location.reload());
+        }
+      });
+    </script>
+  </body>
+</html>
