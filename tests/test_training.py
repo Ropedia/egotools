@@ -14,7 +14,8 @@ def launcher_env(**overrides):
     for key in (
         "DATASET", "MODEL", "OUTPUT_DIR", "SWIFT_BIN", "CUDA_VISIBLE_DEVICES",
         "NPROC_PER_NODE", "FPS", "FPS_MIN_FRAMES", "FPS_MAX_FRAMES",
-        "VIDEO_MAX_TOKEN_NUM", "IMAGE_MAX_TOKEN_NUM", "FORCE_QWENVL_VIDEO_READER",
+        "VIDEO_MIN_TOKEN_NUM", "VIDEO_MAX_TOKEN_NUM", "IMAGE_MAX_TOKEN_NUM", "FORCE_QWENVL_VIDEO_READER",
+        "SWIFT_PYTHON",
     ):
         env.pop(key, None)
     env.update(overrides)
@@ -38,7 +39,7 @@ def make_stub(tmp_path):
         f"#!{sys.executable}\n"
         "import json, os, sys\n"
         "keys = ['NPROC_PER_NODE', 'FPS', 'FPS_MIN_FRAMES', 'FPS_MAX_FRAMES', "
-        "'VIDEO_MAX_TOKEN_NUM', 'IMAGE_MAX_TOKEN_NUM', 'FORCE_QWENVL_VIDEO_READER']\n"
+        "'VIDEO_MIN_TOKEN_NUM', 'VIDEO_MAX_TOKEN_NUM', 'IMAGE_MAX_TOKEN_NUM', 'FORCE_QWENVL_VIDEO_READER']\n"
         "print(json.dumps({'argv': sys.argv[1:], 'env': {k: os.environ[k] for k in keys}}))\n"
         "print('stub training stderr', file=sys.stderr)\n"
         "sys.exit(int(os.environ.get('STUB_EXIT', '0')))\n"
@@ -72,6 +73,8 @@ def test_dry_run_needs_no_data_or_swift_and_round_trips_quoting(tmp_path):
     assert not (tmp_path / "injected").exists()
     assert captured["env"]["FPS_MIN_FRAMES"] == "64"
     assert captured["env"]["FPS_MAX_FRAMES"] == "64"
+    assert captured["env"]["VIDEO_MIN_TOKEN_NUM"] == "128"
+    assert captured["env"]["VIDEO_MAX_TOKEN_NUM"] == "128"
 
     missing_swift = run_launcher(
         "--dataset", dataset, "--output-dir", output, "--dry-run",
@@ -127,3 +130,30 @@ def test_help_and_argument_errors_do_not_require_training_dependencies(tmp_path)
     result = run_launcher("--dataset", "--dry-run", env=env, cwd=tmp_path)
     assert result.returncode == 2
     assert "--dataset requires a value" in result.stderr
+
+
+def make_patch_check(tmp_path, exit_code):
+    # Stands in for the interpreter that inspects the installed MS-Swift template.
+    check = tmp_path / f"patch-check-{exit_code}"
+    check.write_text(f"#!/bin/sh\ncat >/dev/null\nexit {exit_code}\n")
+    check.chmod(0o755)
+    return check
+
+
+def test_dict_video_entries_require_patched_ms_swift(tmp_path):
+    dataset = tmp_path / "windowed.jsonl"
+    dataset.write_text(
+        '{"messages": [{"role": "user", "content": "<video>Q"}, {"role": "assistant", "content": "A"}], '
+        '"videos": [{"video": "clips/a.mp4", "video_start": 0, "video_end": 4}]}\n'
+    )
+    output = tmp_path / "output"
+    stub = str(make_stub(tmp_path))
+    unpatched = launcher_env(SWIFT_BIN=stub, SWIFT_PYTHON=str(make_patch_check(tmp_path, 1)))
+    result = run_launcher("--dataset", dataset, "--output-dir", output, env=unpatched, cwd=tmp_path)
+    assert result.returncode == 2
+    assert "video-entry patch" in result.stderr
+    assert not output.exists()
+
+    patched = launcher_env(SWIFT_BIN=stub, SWIFT_PYTHON=str(make_patch_check(tmp_path, 0)))
+    result = run_launcher("--dataset", dataset, "--output-dir", output, env=patched, cwd=tmp_path)
+    assert result.returncode == 0, result.stderr

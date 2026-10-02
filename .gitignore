@@ -19,6 +19,7 @@ dist/
 /models/
 /outputs/
 /third_party/VLMEvalKit/
+/third_party/ms-swift/
 *.safetensors
 *.bin
 *.pt

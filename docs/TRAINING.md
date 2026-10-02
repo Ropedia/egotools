@@ -24,46 +24,81 @@ it after preparing the environment and data.
 
 ## Environment
 
-The supplied dependency recipe targets Linux x86_64, Python 3.11, and CUDA 12.4.
-The paper configuration uses eight GPUs. Building FlashAttention also requires
-a compatible CUDA toolkit and C++ compiler.
+The paper run used Linux x86_64, Python 3.10, CUDA 12.4 wheels, and eight
+A100-40GB GPUs. [`scripts/setup_train.sh`](../scripts/setup_train.sh) installs
+that stack into the active environment: the pinned dependencies, MS-Swift at
+revision `85ce1be91aad75b1c86424190d4efac1b9896cb3` (reported version
+`4.2.0.dev0`) with the EgoTools video-entry patch, FlashAttention 2.8.3, and this
+package. Building FlashAttention requires a compatible CUDA toolkit and C++
+compiler.
 
 ```bash
-python3.11 -m venv .venv-train
+python3.10 -m venv .venv-train
 source .venv-train/bin/activate
-python -m pip install --upgrade pip setuptools wheel packaging ninja
-python -m pip install -r configs/training/requirements-cu124.txt
-python -m pip install flash-attn==2.8.3 --no-build-isolation
-python -m pip install -e .
-python -m pip check
+bash scripts/setup_train.sh
 swift sft --help
 ```
 
-MS-Swift is installed from upstream revision
-`44c92c7cea08bf3b6e9f9b05ab182b6e81b0a7c7` (reported version `4.2.0.dev0`).
+The script clones MS-Swift into `third_party/ms-swift/` (set `MS_SWIFT_DIR` to
+reuse a checkout at the same revision) and applies
+[`ms-swift-85ce1be-qwen-video-window.patch`](../configs/training/ms-swift-85ce1be-qwen-video-window.patch).
+The patch lets a video entry be a dictionary, such as
+`{"video": "clips/a.mp4", "video_start": 12.0, "video_end": 18.5}`, and passes the
+clip window to `qwen-vl-utils`. Every video row of the final training data uses
+this form; unpatched MS-Swift revisions fail on these rows, and
+`scripts/train.sh` refuses to start on such data without the patch. Revision
+`85ce1be` also adds support for `datasets` 4.x, which the paper run used (4.8.4).
+
+[`requirements-cu124.txt`](../configs/training/requirements-cu124.txt) pins the
+direct dependencies of the paper run, and
+[`original-env-freeze.txt`](../configs/training/original-env-freeze.txt) lists
+every package version of that environment. Other CUDA platforms need matching
+PyTorch and torchvision wheels.
+
 The launcher uses this revision's `swift sft` CLI, including `--tuner_type`,
 `--torch_dtype`, and `--freeze_aligner`. `--use_hf true` selects Hugging Face for
-model downloads; local model directories are also accepted.
-
-The pinned CLI's `swift sft --help` shows a preliminary backend parser. To see
-the full argument list without loading a model:
+model downloads; local model directories are also accepted. The pinned CLI's
+`swift sft --help` shows a preliminary backend parser. To see the full argument
+list without loading a model:
 
 ```bash
 python -c "from swift.pipelines import sft_main; sft_main(['--help'])"
 ```
 
-[`requirements-cu124.txt`](../configs/training/requirements-cu124.txt) pins the
-main dependencies rather than a complete environment lock. It uses
-`datasets==3.6.0` to satisfy the pinned framework's `datasets>=3.0,<4.0`
-requirement. It is a compatible installation recipe, not an exact export of the
-original training environment. Other CUDA platforms need matching PyTorch and
-torchvision wheels.
-
 ## Prepare Training Inputs
 
-The paper mixture contains **184,679 examples** and links to
-[EgoTools-Data](https://huggingface.co/datasets/ropedia-ai/egotools-data). The training file
-and media layout still need to be verified before setting the default download mapping.
+### Final Training Data
+
+The paper mixture contains **184,679 examples**. Its model-input JSONL and all
+referenced media (3,729 videos and 7,595 images, about 107 GB) are in the
+access-restricted dataset configured as `training` in
+[`configs/resources.yaml`](../configs/resources.yaml). Download it with an
+approved account:
+
+```bash
+hf auth login
+egotools-download training --output-dir data/egotools-sft
+```
+
+The download root contains `train_184679.swift.jsonl`, a 128-row
+`smoke_128.swift.jsonl`, the media under `data_final_v4_sft_v5_902_20260625/`,
+and `provenance/` with the paper run's original JSONL, arguments, logs, and
+scores. Media paths are relative to the download root, so launch from that
+directory. The JSONL already contains only `messages`, `videos`, and `images`;
+`egotools-prepare-sft` is not needed.
+
+| Rows | Video entry | Images |
+| ---: | --- | ---: |
+| 174,679 | `{"video", "video_start", "video_end"}` clip window | 0 |
+| 5,000 | `{"video"}` pre-cut clip, next-action question | 1 (current frame) |
+| 5,000 | none, single-image open-ended question | 1 |
+
+`provenance/undecodable_rows.json` lists 29 rows whose clip window starts after
+the end of the source video. MS-Swift replaces each with a randomly drawn row,
+as it did in the paper run.
+
+### Other Inputs
+
 [Historical resources](DATA.md#historical-resources) provide earlier data for
 inspection and software checks. The launcher requires `--dataset` or `DATASET`
 explicitly.
@@ -106,7 +141,9 @@ output.
 This conversion is required for the historical bundle: its heterogeneous nested
 `metadata` causes the pinned loader to fail. Conversion also removes the original
 `start_frame` and `end_frame` fields, which the pinned MS-Swift SFT loader discards.
-Neither the converter nor the launcher crops videos using those fields.
+Neither the converter nor the launcher crops videos using those row-level
+fields; a clip window must be given inside the video entry, as in the final
+training data.
 [Historical training instructions](DATA.md#historical-training-data) explain the
 base and incremental downloads and their shared media root.
 
@@ -135,7 +172,7 @@ the paper's **Training and Evaluation Details** appendix:
 | Gradient checkpointing | Enabled |
 
 The launcher also supplies implementation settings that the paper does not
-report: `VIDEO_MAX_TOKEN_NUM=128`, the `adamw_torch` backend, weight decay `0.1`,
+report: `VIDEO_MIN_TOKEN_NUM=VIDEO_MAX_TOKEN_NUM=128`, the `adamw_torch` backend, weight decay `0.1`,
 Adam betas `(0.9, 0.95)`, seeds `42 / 42`, Decord decoding, and ZeRO-3 without
 offload. These are the current code defaults, not additional paper specifications.
 The video-frame token setting is separate from `IMAGE_MAX_TOKEN_NUM=1024`;
@@ -147,18 +184,20 @@ including its merger and DeepStack projectors. `--torch_dtype bfloat16` enables
 BF16 training, and `--attn_impl flash_attn` selects FlashAttention 2. MS-Swift
 passes the image/video budgets and FPS bounds to `qwen-vl-utils`.
 
-Run the default recipe:
+Run the default recipe on the final data from the download root (smoke-test
+first with `--dataset smoke_128.swift.jsonl -- --max_steps 2`):
 
 ```bash
+cd data/egotools-sft
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 NPROC_PER_NODE=8 \
-bash scripts/train.sh \
-  --dataset /path/to/train.swift.jsonl \
+bash /path/to/EgoTools/scripts/train.sh \
+  --dataset train_184679.swift.jsonl \
   --model Qwen/Qwen3-VL-8B-Instruct \
-  --output-dir outputs/egotools-8b
+  --output-dir /path/to/outputs/egotools-8b
 ```
 
-The reported 1,443 optimizer steps describe the paper run. The launcher trains
-for one epoch and does not hard-code that step count. `--truncation_strategy
+The launcher trains for one epoch and does not hard-code a step count; on eight
+GPUs the final data gives the paper run's 1,443 optimizer steps. `--truncation_strategy
 delete` is another implementation choice, not a reported paper setting; it
 discards over-length examples. Inspect the retained example and step counts
 when changing data or media preparation.
@@ -198,15 +237,22 @@ that includes those states.
 
 ## Validation Scope
 
+For the final data, the following were checked against the paper run: the
+downloaded JSONL has 184,679 rows and differs from the trained file only by a
+removed absolute path prefix (both files are in `provenance/`); every referenced
+media file is present; the patched `qwen.py` is byte-identical to the file used
+in training; and the launcher arguments match the run's recorded arguments,
+except checkpoint frequency and retention and the DataLoader worker count. A full
+GPU training run has not been repeated with this repository.
+
 An earlier runtime check loaded all 172,118 prepared
 historical rows and completed one optimizer step with Qwen3-VL-2B-Instruct on
 one example and one RTX 6000 Ada. That test used SDPA, accumulation 1, and no
 checkpoint saving; it did not exercise FlashAttention, 8B training, or state
-resumption. The documented Python 3.11 environment resolved dependencies, while
-the runtime test used a temporary Python 3.10 environment. GPU training has not
-been rerun after the code reorganization.
+resumption. It ran in a temporary Python 3.10 environment with the earlier
+MS-Swift pin. GPU training has not been rerun after the code reorganization.
 
-Full reproduction requires the final 184,679-example data and media, the final
-checkpoint for comparison, the intended hardware, and a complete training run.
+Full reproduction still requires the intended hardware, a complete training
+run, and comparison with the released checkpoint.
 The [historical checkpoint](DATA.md#historical-checkpoint) comes from an earlier
 116,031-example run and does not establish reproduction of the final model.

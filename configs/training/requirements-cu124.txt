@@ -1,14 +1,13 @@
 --extra-index-url https://download.pytorch.org/whl/cu124
 
-# Linux x86_64, Python 3.11, CUDA 12.4. These are direct dependency pins,
-# not a complete environment lock. Install FlashAttention separately (see docs).
+# Linux x86_64, Python 3.10, CUDA 12.4: the direct dependencies of the paper run.
+# Install with scripts/setup_train.sh, which also installs FlashAttention and the
+# patched MS-Swift. original-env-freeze.txt lists the complete original environment.
 torch==2.6.0+cu124
 torchvision==0.21.0+cu124
 
 accelerate==1.13.0
-# The pinned ms-swift revision declares datasets>=3.0,<4.0. The captured
-# development environment's 4.8.4 cannot be resolved with that requirement.
-datasets==3.6.0
+datasets==4.8.4
 decord==0.6.0
 deepspeed==0.18.9
 huggingface-hub==0.36.2
@@ -25,4 +24,5 @@ tokenizers==0.22.2
 transformers==4.57.6
 trl==0.29.1
 
-ms-swift @ git+https://github.com/modelscope/ms-swift.git@44c92c7cea08bf3b6e9f9b05ab182b6e81b0a7c7
+# MS-Swift is installed by scripts/setup_train.sh from revision 85ce1be plus
+# ms-swift-85ce1be-qwen-video-window.patch; an unpatched wheel cannot load the training data.

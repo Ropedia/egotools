@@ -21,8 +21,10 @@ Earlier runnable resources appear under [Historical resources](#historical-resou
 `egotools-download` reads `configs/resources.yaml` in a source checkout or its
 packaged copy in an installed wheel. Resource locations can be supplied in a
 local YAML file or overridden explicitly. The model mapping is
-`ropedia-ai/egotools-8b`; benchmark and training mappings remain blank pending
-their question-table and SFT exports. With access to the model repository, download it with:
+`ropedia-ai/egotools-8b`, and the training mapping is the access-restricted final
+SFT export described in [Training](TRAINING.md#final-training-data); the benchmark
+mapping remains blank pending its question-table export. With access to the model
+repository, download it with:
 
 ```bash
 egotools-download model --output-dir models/egotools-8b

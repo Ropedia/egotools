@@ -1,0 +1,24 @@
+EgoTools video-entry patch for MS-Swift 85ce1be91aad75b1c86424190d4efac1b9896cb3 (Apache-2.0).
+Lets a video entry be a dict, {"video": path} or {"video": path, "video_start": s, "video_end": e},
+and passes the clip window to qwen-vl-utils. Every video row of the final 184,679-example training
+data uses this form. Applied by scripts/setup_train.sh; identical to the code used for the paper run.
+
+diff --git a/swift/template/templates/qwen.py b/swift/template/templates/qwen.py
+index de0ac6c80..7f2258bc0 100644
+--- a/swift/template/templates/qwen.py
++++ b/swift/template/templates/qwen.py
+@@ -325,8 +325,12 @@ class Qwen2VLTemplate(Template):
+             if self.version == 'v3':
+                 kwargs['return_video_metadata'] = True
+             video = inputs.videos[index]
+-            video_inputs = {'video': video}
+-            if isinstance(video, list):  # image list
++            if isinstance(video, dict):
++                video_inputs = video.copy()
++                video = video_inputs.get('video')
++            else:
++                video_inputs = {'video': video}
++            if isinstance(video_inputs.get('video'), list):  # image list
+                 from qwen_vl_utils import vision_process
+                 video_inputs['sample_fps'] = vision_process.FPS
+             video, video_kwargs = fetch_video(video_inputs, return_video_sample_fps=True, **kwargs)
